@@ -121,45 +121,71 @@ export default function ZohoConfigModal({ isOpen, onClose, selectedRecords, onSu
       return
     }
 
-    setIsPushing(true)
-    setPushProgress({ current: 0, total: selectedRecords.length })
-    setStep(3)
+  setIsPushing(true)
+  setPushProgress({ current: 0, total: selectedRecords.length })
+  setStep(3)
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/zoho/dynamic-push`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          config: config,
-          field_mapping: fieldMapping,
-          record_ids: Array.from(selectedRecords)
-        })
+  try {
+    // Start the job
+    const response = await fetch(`${API_BASE_URL}/zoho/dynamic-push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        config: config,
+        field_mapping: fieldMapping,
+        record_ids: Array.from(selectedRecords)
       })
+    })
 
-      const result = await response.json()
+    const result = await response.json()
 
-      if (result.success) {
-        toast.success(
-          `🎉 Successfully pushed ${result.details.successful}/${result.details.total_records} records!`,
-          {
-            duration: 5000,
-            style: { background: '#10B981', color: 'white', fontWeight: 600 }
+    if (result.success && result.job_id) {
+      // Poll for progress
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusResponse = await fetch(`${API_BASE_URL}/zoho/push-status/${result.job_id}`)
+          const statusData = await statusResponse.json()
+          
+          if (statusData.success) {
+            const progress = statusData.progress
+            
+            // Update progress UI
+            setPushProgress({
+              current: progress.processed_records,
+              total: progress.total_records
+            })
+            
+            // Check if completed
+            if (statusData.status === 'completed' || statusData.status === 'failed') {
+              clearInterval(pollInterval)
+              setIsPushing(false)
+              
+              if (statusData.status === 'completed') {
+                toast.success(
+                  `🎉 Successfully pushed ${progress.successful_records}/${progress.total_records} records!`,
+                  { duration: 5000, style: { background: '#10B981', color: 'white', fontWeight: 600 } }
+                )
+                onSuccess(progress)
+                setTimeout(() => onClose(), 2000)
+              } else {
+                toast.error('Push failed. Check logs for details.')
+              }
+            }
           }
-        )
-        onSuccess(result.details)
-        setTimeout(() => {
-          onClose()
-        }, 2000)
-      } else {
-        toast.error(result.error || 'Push failed')
-      }
-    } catch (error) {
-      toast.error(`Error: ${error.message}`)
-    } finally {
+        } catch (pollError) {
+          console.error('Polling error:', pollError)
+        }
+      }, 1000) // Poll every second
+      
+    } else {
+      toast.error(result.error || 'Failed to start push job')
       setIsPushing(false)
-      setPushProgress(null)
     }
+  } catch (error) {
+    toast.error(`Error: ${error.message}`)
+    setIsPushing(false)
   }
+}
 
   const getValueFromPath = (obj, path) => {
     // Helper to get nested values like "bank_data.account_number"

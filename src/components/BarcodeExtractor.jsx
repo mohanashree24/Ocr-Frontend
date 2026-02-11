@@ -1,613 +1,1366 @@
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Upload, FileText, X, Package, Copy, Check, Download, Search, AlertCircle, Image as ImageIcon } from 'lucide-react'
-import { useDropzone } from 'react-dropzone'
+import toast, { Toaster } from 'react-hot-toast'
+import {
+  Play,
+  CheckCircle2,
+  XCircle,
+  Activity,
+  RefreshCw,
+  Loader2,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Folder,
+  Image as ImageIcon,
+  Zap,
+  AlertCircle,
+  TrendingUp,
+  Clock,
+  DollarSign,
+  ArrowLeft,
+  FileText,
+  BarChart3,
+  ScanBarcode,
+  Download,
+  Database,
+  Copy,
+  ExternalLink
+} from 'lucide-react'
 
-const API_BASE_URL = 'https://ocr-owwb.onrender.com'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export default function BarcodeExtractor() {
-    const [file, setFile] = useState(null)
-    const [imagePreview, setImagePreview] = useState(null)
-    const [processing, setProcessing] = useState(false)
-    const [results, setResults] = useState(null)
-    const [copiedIndex, setCopiedIndex] = useState(null)
-    const [searchTerm, setSearchTerm] = useState('')
-    const [error, setError] = useState(null)
+  const [config, setConfig] = useState({
+    folder_id: 'gzrjifb529f116bf44f1e94b6d005a6bf0e71'
+  })
 
-    const extractionPrompt = `Extract ALL barcode tracking numbers from this image.
-Each barcode follows the format: CT + 9 digits + IN (example: CT270166930IN)
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false)
+  const [files, setFiles] = useState([])
+  const [selectedFiles, setSelectedFiles] = useState(new Set())
 
-IMPORTANT: Look for barcodes that have:
-- Letter "C" at the top
-- A barcode pattern (vertical lines)
-- Tracking number like CT270166930IN below the barcode
-- Multiple barcodes arranged in a grid
+  const [currentPage, setCurrentPage] = useState(1)
+  const [filesPerPage] = useState(50)
+  const [searchQuery, setSearchQuery] = useState('')
 
-Return a JSON object with:
-- total_barcodes: number of barcodes found
-- barcodes: array of tracking numbers (just the tracking numbers, nothing else)
+  const [activeJob, setActiveJob] = useState(null)
+  const [jobStatus, setJobStatus] = useState(null)
+  const [isPolling, setIsPolling] = useState(false)
+  const [jobResults, setJobResults] = useState([])
 
-If NO barcodes are found, return:
-{
-    "total_barcodes": 0,
-    "barcodes": [],
-    "note": "No India Post barcodes detected in this image"
-}
+  const [processingSpeed, setProcessingSpeed] = useState(0)
+  const [lastProcessedCount, setLastProcessedCount] = useState(0)
+  const [lastUpdateTime, setLastUpdateTime] = useState(Date.now())
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState(null)
 
-Format:
-{
-    "total_barcodes": 39,
-    "barcodes": ["CT270166930IN", "CT270167056IN", ...]
-}`
+  // Polling effect
+  useEffect(() => {
+    let interval
+    if (isPolling && activeJob) {
+      interval = setInterval(() => {
+        fetchJobStatus(activeJob)
+      }, 1000)
+    }
+    return () => clearInterval(interval)
+  }, [isPolling, activeJob])
 
-    const onDrop = useCallback((acceptedFiles) => {
-        if (acceptedFiles.length > 0) {
-            const selectedFile = acceptedFiles[0]
-            setFile(selectedFile)
-            setResults(null)
-            setError(null)
-            
-            // Create image preview
-            if (selectedFile.type.startsWith('image/')) {
-                const reader = new FileReader()
-                reader.onload = (e) => {
-                    setImagePreview(e.target.result)
-                }
-                reader.readAsDataURL(selectedFile)
-            } else {
-                setImagePreview(null)
-            }
-        }
-    }, [])
+  // Calculate estimated time
+  useEffect(() => {
+    if (jobStatus && processingSpeed > 0) {
+      const remaining = jobStatus.progress?.total_files - jobStatus.progress?.processed_files
+      const minutesRemaining = remaining / processingSpeed
+      setEstimatedTimeRemaining(minutesRemaining)
+    }
+  }, [jobStatus, processingSpeed])
 
-    const { getRootProps, getInputProps, isDragActive } = useDropzone({
-        onDrop,
-        accept: {
-            'image/*': ['.png', '.jpg', '.jpeg'],
-            'application/pdf': ['.pdf']
-        },
-        multiple: false
+  // Update loadFiles function
+const loadFiles = async () => {
+  if (!config.folder_id) {
+    toast.error('Please enter Folder ID')
+    return
+  }
+
+  setIsLoadingFiles(true)
+  try {
+    const formData = new FormData()
+    formData.append('folder_id', config.folder_id)
+
+    const response = await fetch(`${API_BASE_URL}/barcode/workdrive/list-files`, {
+      method: 'POST',
+      body: formData
     })
 
-    const processBarcode = async () => {
-        if (!file) return
+    const data = await response.json()
 
-        setProcessing(true)
-        setResults(null)
-        setError(null)
+    if (data.success) {
+      setFiles(data.files || [])
+      setSelectedFiles(new Set())
+      setCurrentPage(1)
 
-        try {
-            const formData = new FormData()
-            formData.append('file', file)
-            formData.append('extraction_prompt', extractionPrompt)
+      toast.success(`✅ Loaded ${data.total_files} files`, {
+        icon: '📁',
+        style: { borderRadius: '12px', background: '#8B5CF6', color: 'white' }
+      })
+    } else {
+      toast.error(`Error: ${data.error}`)
+    }
+  } catch (error) {
+    toast.error(`Failed to load files: ${error.message}`)
+  } finally {
+    setIsLoadingFiles(false)
+  }
+}
 
-            const response = await fetch(`${API_BASE_URL}/ocr/generic`, {
-                method: 'POST',
-                body: formData
+  const startExtraction = async () => {
+    if (selectedFiles.size === 0) {
+      toast.error('Please select at least one file')
+      return
+    }
+
+    try {
+      const formData = new FormData()
+      formData.append('folder_id', config.folder_id)
+      formData.append('selected_file_ids', JSON.stringify([...selectedFiles]))
+
+      const response = await fetch(`${API_BASE_URL}/barcode/workdrive/start`, {
+        method: 'POST',
+        body: formData
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setActiveJob(data.job_id)
+        setIsPolling(true)
+        setLastProcessedCount(0)
+        setLastUpdateTime(Date.now())
+        setProcessingSpeed(0)
+        setJobResults([])
+        toast.success(`🚀 Processing started!`, {
+          duration: 5000,
+          style: { borderRadius: '12px', background: '#8B5CF6', color: 'white' }
+        })
+      } else {
+        toast.error(`Error: ${data.error}`)
+      }
+    } catch (error) {
+      toast.error(`Failed to start: ${error.message}`)
+    }
+  }
+
+  const fetchJobStatus = async (jobId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/barcode/workdrive/status/${jobId}`)
+      const data = await response.json()
+
+      if (data.success) {
+        setJobStatus(data)
+
+        const now = Date.now()
+        const processed = data.progress?.processed_files || 0
+
+        if (processed > lastProcessedCount) {
+          const timeDiff = (now - lastUpdateTime) / 1000 / 60
+          const filesDiff = processed - lastProcessedCount
+          const speed = filesDiff / timeDiff
+          setProcessingSpeed(speed)
+          setLastProcessedCount(processed)
+          setLastUpdateTime(now)
+        }
+
+        if (data.status === 'completed' || data.status === 'failed') {
+          setIsPolling(false)
+          fetchJobResults(jobId)
+
+          if (data.status === 'completed') {
+            toast.success('✅ Extraction completed!', {
+              icon: '🎉',
+              style: { borderRadius: '12px', background: '#10B981', color: 'white' }
             })
-
-            const result = await response.json()
-            
-            if (result.success !== false) {
-                // Check if barcodes were actually found
-                const barcodes = result.barcodes || []
-                const totalBarcodes = result.total_barcodes || barcodes.length || 0
-                
-                if (totalBarcodes === 0) {
-                    setError({
-                        title: 'No Barcodes Found',
-                        message: 'This file does not appear to contain India Post barcode tracking numbers.',
-                        suggestion: 'Please upload an image of a barcode sheet with format: CT + 9 digits + IN (e.g., CT270166930IN)',
-                        extractedData: result
-                    })
-                } else {
-                    setResults({
-                        ...result,
-                        total_barcodes: totalBarcodes,
-                        barcodes: barcodes
-                    })
-                }
-            } else {
-                setError({
-                    title: 'Extraction Failed',
-                    message: result.error || 'Unknown error occurred',
-                    suggestion: 'Please try again with a different image'
-                })
-            }
-        } catch (error) {
-            setError({
-                title: 'Network Error',
-                message: error.message,
-                suggestion: 'Please check your internet connection and try again'
-            })
-        } finally {
-            setProcessing(false)
+          } else {
+            toast.error('❌ Extraction failed')
+          }
         }
+      }
+    } catch (error) {
+      console.error('Failed to fetch status:', error)
     }
+  }
 
-    const copyToClipboard = (text, index) => {
-        navigator.clipboard.writeText(text)
-        setCopiedIndex(index)
-        setTimeout(() => setCopiedIndex(null), 2000)
+  const fetchJobResults = async (jobId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/barcode/workdrive/results/${jobId}?limit=100`)
+      const data = await response.json()
+
+      if (data.success) {
+        setJobResults(data.results || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch results:', error)
     }
+  }
 
-    const copyAllBarcodes = () => {
-        if (results?.barcodes) {
-            const allBarcodes = results.barcodes.join('\n')
-            navigator.clipboard.writeText(allBarcodes)
-            setCopiedIndex('all')
-            setTimeout(() => setCopiedIndex(null), 2000)
-        }
+  const handleBackToMain = () => {
+    setActiveJob(null)
+    setJobStatus(null)
+    setIsPolling(false)
+    setJobResults([])
+    loadFiles()
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedFiles.size > 0) {
+      setSelectedFiles(new Set())
+    } else {
+      setSelectedFiles(new Set(files.map(f => f.file_id)))
     }
+  }
 
-    const downloadCSV = () => {
-        if (results?.barcodes) {
-            const csv = 'Barcode Number\n' + results.barcodes.join('\n')
-            const blob = new Blob([csv], { type: 'text/csv' })
-            const url = window.URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = 'barcodes.csv'
-            a.click()
-        }
+  const toggleSelectFile = (fileId) => {
+    const newSelected = new Set(selectedFiles)
+    if (newSelected.has(fileId)) {
+      newSelected.delete(fileId)
+    } else {
+      newSelected.add(fileId)
     }
+    setSelectedFiles(newSelected)
+  }
 
-    const filteredBarcodes = results?.barcodes?.filter(barcode => 
-        barcode.toLowerCase().includes(searchTerm.toLowerCase())
-    ) || []
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text)
+    toast.success('Copied to clipboard!', {
+      icon: '📋',
+      duration: 2000
+    })
+  }
 
-    return (
-        <div style={{
-            minHeight: '100vh',
-            background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%)',
-            padding: '2rem',
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-        }}>
-            <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-                {/* Header */}
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    style={{ textAlign: 'center', marginBottom: '3rem' }}
-                >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                        <Package size={48} style={{ color: '#0066FF' }} />
-                        <h1 style={{
-                            fontSize: '3rem',
-                            fontWeight: 900,
-                            background: 'linear-gradient(135deg, #0066FF, #00A3FF)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            margin: 0
-                        }}>
-                            Barcode Extractor
-                        </h1>
-                    </div>
-                    <p style={{ color: '#888', fontSize: '1.1rem' }}>
-                        Extract India Post tracking numbers from barcode sheets
-                    </p>
-                </motion.div>
+  const downloadResults = () => {
+    // Convert results to CSV
+    const headers = ['Filename', 'Barcode Type', 'Barcode Data', 'Status', 'Cost (USD)']
+    const rows = jobResults.map(r => [
+      r.filename || '',
+      r.barcode_type || '',
+      r.barcode_data || '',
+      r.status || '',
+      (r.cost_usd || 0).toFixed(6)
+    ])
 
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: results ? '1fr 1.5fr' : '1fr',
-                    gap: '2rem'
-                }}>
-                    {/* Upload Section */}
-                    <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        style={{
-                            background: 'rgba(255, 255, 255, 0.03)',
-                            backdropFilter: 'blur(20px)',
-                            border: '2px solid rgba(255, 255, 255, 0.1)',
-                            borderRadius: '24px',
-                            padding: '2rem'
-                        }}
-                    >
-                        <h2 style={{ 
-                            color: 'white', 
-                            marginBottom: '1.5rem',
-                            fontSize: '1.5rem',
-                            fontWeight: 700
-                        }}>
-                            Upload Barcode Sheet
-                        </h2>
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `barcode_extraction_${activeJob}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
 
-                        <div
-                            {...getRootProps()}
-                            style={{
-                                border: `3px dashed ${isDragActive ? '#0066FF' : 'rgba(255, 255, 255, 0.2)'}`,
-                                borderRadius: '16px',
-                                padding: '3rem 2rem',
-                                textAlign: 'center',
-                                cursor: 'pointer',
-                                background: isDragActive ? 'rgba(0, 102, 255, 0.1)' : 'rgba(255, 255, 255, 0.02)',
-                                transition: 'all 0.3s ease',
-                                marginBottom: '1.5rem'
-                            }}
-                        >
-                            <input {...getInputProps()} />
-                            
-                            {!file ? (
-                                <>
-                                    <Upload size={48} style={{ color: '#0066FF', marginBottom: '1rem' }} />
-                                    <p style={{ color: 'white', fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-                                        {isDragActive ? 'Drop here!' : 'Drop barcode image here'}
-                                    </p>
-                                    <p style={{ color: '#888', fontSize: '0.9rem' }}>
-                                        PNG, JPG, or PDF
-                                    </p>
-                                </>
-                            ) : (
-                                <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center', marginBottom: '1rem' }}>
-                                        <FileText size={24} style={{ color: '#0066FF' }} />
-                                        <div style={{ textAlign: 'left' }}>
-                                            <p style={{ color: 'white', fontWeight: 600, margin: 0 }}>{file.name}</p>
-                                            <p style={{ color: '#888', fontSize: '0.9rem', margin: 0 }}>
-                                                {(file.size / 1024).toFixed(1)} KB
-                                            </p>
-                                        </div>
-                                        <button
-                                            onClick={(e) => { 
-                                                e.stopPropagation(); 
-                                                setFile(null); 
-                                                setImagePreview(null);
-                                                setResults(null); 
-                                                setError(null);
-                                            }}
-                                            style={{
-                                                background: 'rgba(239, 68, 68, 0.1)',
-                                                border: '2px solid rgba(239, 68, 68, 0.3)',
-                                                borderRadius: '8px',
-                                                padding: '0.5rem',
-                                                cursor: 'pointer',
-                                                color: '#ef4444'
-                                            }}
-                                        >
-                                            <X size={16} />
-                                        </button>
-                                    </div>
-                                    
-                                    {/* Image Preview */}
-                                    {imagePreview && (
-                                        <div style={{
-                                            marginTop: '1rem',
-                                            borderRadius: '12px',
-                                            overflow: 'hidden',
-                                            border: '2px solid rgba(255, 255, 255, 0.1)'
-                                        }}>
-                                            <img 
-                                                src={imagePreview} 
-                                                alt="Preview" 
-                                                style={{
-                                                    width: '100%',
-                                                    height: 'auto',
-                                                    maxHeight: '300px',
-                                                    objectFit: 'contain',
-                                                    background: 'rgba(0, 0, 0, 0.3)'
-                                                }}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
+    toast.success('Downloaded results as CSV', {
+      icon: '📥',
+      duration: 3000
+    })
+  }
 
-                        {/* Expected Format Info */}
-                        <div style={{
-                            padding: '1rem',
-                            background: 'rgba(0, 102, 255, 0.05)',
-                            border: '2px solid rgba(0, 102, 255, 0.2)',
-                            borderRadius: '12px',
-                            marginBottom: '1.5rem'
-                        }}>
-                            <h4 style={{ 
-                                color: '#0066FF', 
-                                fontSize: '0.9rem', 
-                                fontWeight: 700, 
-                                marginBottom: '0.5rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem'
-                            }}>
-                                <ImageIcon size={16} />
-                                Expected Format
-                            </h4>
-                            <ul style={{ 
-                                color: '#888', 
-                                fontSize: '0.85rem', 
-                                margin: 0, 
-                                paddingLeft: '1.5rem',
-                                lineHeight: 1.6
-                            }}>
-                                <li>Multiple barcodes arranged in a grid</li>
-                                <li>Letter "C" above each barcode</li>
-                                <li>Format: <code style={{ color: '#0066FF' }}>CT270166930IN</code></li>
-                                <li>India Post tracking labels</li>
-                            </ul>
-                        </div>
-
-                        <motion.button
-                            whileHover={{ scale: file && !processing ? 1.02 : 1 }}
-                            whileTap={{ scale: file && !processing ? 0.98 : 1 }}
-                            disabled={!file || processing}
-                            onClick={processBarcode}
-                            style={{
-                                width: '100%',
-                                padding: '1rem',
-                                fontSize: '1.1rem',
-                                fontWeight: 700,
-                                borderRadius: '12px',
-                                border: 'none',
-                                background: (!file || processing)
-                                    ? 'rgba(255, 255, 255, 0.05)'
-                                    : 'linear-gradient(135deg, #0066FF, #00A3FF)',
-                                color: (!file || processing) ? 'rgba(255, 255, 255, 0.3)' : 'white',
-                                cursor: (!file || processing) ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.3s ease'
-                            }}
-                        >
-                            {processing ? 'Extracting...' : file ? 'Extract Barcodes' : 'Select File First'}
-                        </motion.button>
-
-                        {/* Summary */}
-                        {(results || error) && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                style={{
-                                    marginTop: '2rem',
-                                    padding: '1.5rem',
-                                    background: error 
-                                        ? 'rgba(239, 68, 68, 0.1)'
-                                        : 'rgba(0, 102, 255, 0.1)',
-                                    border: `2px solid ${error ? 'rgba(239, 68, 68, 0.3)' : 'rgba(0, 102, 255, 0.3)'}`,
-                                    borderRadius: '16px'
-                                }}
-                            >
-                                <h3 style={{ 
-                                    color: 'white', 
-                                    marginBottom: '1rem', 
-                                    fontSize: '1.2rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem'
-                                }}>
-                                    {error && <AlertCircle size={20} style={{ color: '#ef4444' }} />}
-                                    {error ? 'Error' : 'Summary'}
-                                </h3>
-                                
-                                {error ? (
-                                    <div style={{ display: 'grid', gap: '0.75rem' }}>
-                                        <div>
-                                            <p style={{ color: '#ef4444', fontWeight: 700, margin: '0 0 0.5rem 0' }}>
-                                                {error.title}
-                                            </p>
-                                            <p style={{ color: '#888', fontSize: '0.9rem', margin: 0 }}>
-                                                {error.message}
-                                            </p>
-                                        </div>
-                                        <div style={{
-                                            padding: '0.75rem',
-                                            background: 'rgba(0, 0, 0, 0.3)',
-                                            borderRadius: '8px'
-                                        }}>
-                                            <p style={{ color: '#10b981', fontSize: '0.85rem', margin: 0 }}>
-                                                💡 {error.suggestion}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div style={{ display: 'grid', gap: '0.75rem' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ color: '#888' }}>Total Barcodes:</span>
-                                            <span style={{ color: '#0066FF', fontWeight: 700 }}>
-                                                {results?.total_barcodes || 0}
-                                            </span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ color: '#888' }}>Processing Time:</span>
-                                            <span style={{ color: 'white', fontWeight: 600 }}>
-                                                {results?.processing_time_ms}ms
-                                            </span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ color: '#888' }}>Method:</span>
-                                            <span style={{ color: 'white', fontWeight: 600 }}>
-                                                {results?.method}
-                                            </span>
-                                        </div>
-                                    </div>
-                                )}
-                            </motion.div>
-                        )}
-                    </motion.div>
-
-                    {/* Results Section */}
-                    <AnimatePresence>
-                        {results && (
-                            <motion.div
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 20 }}
-                                style={{
-                                    background: 'rgba(255, 255, 255, 0.03)',
-                                    backdropFilter: 'blur(20px)',
-                                    border: '2px solid rgba(255, 255, 255, 0.1)',
-                                    borderRadius: '24px',
-                                    padding: '2rem'
-                                }}
-                            >
-                                <div style={{ 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
-                                    alignItems: 'center',
-                                    marginBottom: '1.5rem'
-                                }}>
-                                    <h2 style={{ 
-                                        color: 'white', 
-                                        fontSize: '1.5rem',
-                                        fontWeight: 700,
-                                        margin: 0
-                                    }}>
-                                        Extracted Barcodes ({filteredBarcodes.length})
-                                    </h2>
-                                    <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                        <motion.button
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
-                                            onClick={downloadCSV}
-                                            style={{
-                                                padding: '0.75rem 1.25rem',
-                                                borderRadius: '10px',
-                                                border: '2px solid rgba(255, 255, 255, 0.1)',
-                                                background: 'rgba(255, 255, 255, 0.05)',
-                                                color: 'white',
-                                                cursor: 'pointer',
-                                                fontWeight: 600,
-                                                fontSize: '0.9rem',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.5rem'
-                                            }}
-                                        >
-                                            <Download size={16} />
-                                            CSV
-                                        </motion.button>
-                                        <motion.button
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
-                                            onClick={copyAllBarcodes}
-                                            style={{
-                                                padding: '0.75rem 1.25rem',
-                                                borderRadius: '10px',
-                                                border: '2px solid rgba(0, 102, 255, 0.3)',
-                                                background: 'rgba(0, 102, 255, 0.1)',
-                                                color: '#0066FF',
-                                                cursor: 'pointer',
-                                                fontWeight: 600,
-                                                fontSize: '0.9rem',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.5rem'
-                                            }}
-                                        >
-                                            {copiedIndex === 'all' ? <Check size={16} /> : <Copy size={16} />}
-                                            Copy All
-                                        </motion.button>
-                                    </div>
-                                </div>
-
-                                {/* Search Bar */}
-                                <div style={{
-                                    position: 'relative',
-                                    marginBottom: '1.5rem'
-                                }}>
-                                    <Search 
-                                        size={18} 
-                                        style={{
-                                            position: 'absolute',
-                                            left: '1rem',
-                                            top: '50%',
-                                            transform: 'translateY(-50%)',
-                                            color: '#888'
-                                        }}
-                                    />
-                                    <input
-                                        type="text"
-                                        placeholder="Search barcodes..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        style={{
-                                            width: '100%',
-                                            padding: '0.75rem 1rem 0.75rem 3rem',
-                                            background: 'rgba(0, 0, 0, 0.3)',
-                                            border: '2px solid rgba(255, 255, 255, 0.1)',
-                                            borderRadius: '12px',
-                                            color: 'white',
-                                            fontSize: '0.95rem'
-                                        }}
-                                    />
-                                </div>
-
-                                {/* Barcode List */}
-                                <div style={{
-                                    maxHeight: '600px',
-                                    overflowY: 'auto',
-                                    display: 'grid',
-                                    gap: '0.75rem'
-                                }}>
-                                    {filteredBarcodes.map((barcode, index) => (
-                                        <motion.div
-                                            key={index}
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: index * 0.02 }}
-                                            whileHover={{ x: 4 }}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                padding: '1rem 1.25rem',
-                                                background: 'rgba(255, 255, 255, 0.03)',
-                                                border: '2px solid rgba(255, 255, 255, 0.08)',
-                                                borderRadius: '12px',
-                                                transition: 'all 0.3s ease'
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                <span style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    width: '32px',
-                                                    height: '32px',
-                                                    borderRadius: '8px',
-                                                    background: 'rgba(0, 102, 255, 0.2)',
-                                                    color: '#0066FF',
-                                                    fontSize: '0.85rem',
-                                                    fontWeight: 700
-                                                }}>
-                                                    {index + 1}
-                                                </span>
-                                                <code style={{
-                                                    color: 'white',
-                                                    fontSize: '1.05rem',
-                                                    fontWeight: 600,
-                                                    fontFamily: 'monospace'
-                                                }}>
-                                                    {barcode}
-                                                </code>
-                                            </div>
-                                            <motion.button
-                                                whileHover={{ scale: 1.1 }}
-                                                whileTap={{ scale: 0.9 }}
-                                                onClick={() => copyToClipboard(barcode, index)}
-                                                style={{
-                                                    padding: '0.5rem',
-                                                    borderRadius: '8px',
-                                                    border: '2px solid rgba(0, 102, 255, 0.3)',
-                                                    background: copiedIndex === index 
-                                                        ? 'rgba(16, 185, 129, 0.2)'
-                                                        : 'rgba(0, 102, 255, 0.1)',
-                                                    color: copiedIndex === index ? '#10b981' : '#0066FF',
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center'
-                                                }}
-                                            >
-                                                {copiedIndex === index ? <Check size={16} /> : <Copy size={16} />}
-                                            </motion.button>
-                                        </motion.div>
-                                    ))}
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-            </div>
-        </div>
+  const filteredFiles = useMemo(() => {
+    return files.filter(file =>
+      file.filename?.toLowerCase().includes(searchQuery.toLowerCase())
     )
+  }, [files, searchQuery])
+
+  const totalPages = Math.ceil(filteredFiles.length / filesPerPage)
+  const startIndex = (currentPage - 1) * filesPerPage
+  const endIndex = startIndex + filesPerPage
+  const paginatedFiles = filteredFiles.slice(startIndex, endIndex)
+
+  return (
+    <div style={{ maxWidth: '1800px', margin: '0 auto', padding: '24px' }}>
+      <Toaster
+        position="top-right"
+        toastOptions={{ duration: 4000 }}
+        containerStyle={{ zIndex: 9999 }}
+      />
+
+      <style>{`
+        * {
+          box-sizing: border-box;
+        }
+        
+        .glass-card {
+          background: rgba(255, 255, 255, 0.98);
+          backdrop-filter: blur(40px);
+          border-radius: 24px;
+          border: 1px solid rgba(139, 92, 246, 0.1);
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.05), 0 0 1px rgba(0, 0, 0, 0.1);
+          transition: all 0.3s ease;
+        }
+        
+        .glass-card:hover {
+          box-shadow: 0 30px 90px rgba(139, 92, 246, 0.12);
+          transform: translateY(-2px);
+        }
+        
+        .input-modern, .select-modern {
+          background: #F8FAFC;
+          border: 2px solid #E2E8F0;
+          border-radius: 12px;
+          padding: 14px 18px;
+          font-size: 15px;
+          font-weight: 500;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          width: 100%;
+          color: #1E293B;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        .input-modern:focus, .select-modern:focus {
+          outline: none;
+          border-color: #8B5CF6;
+          background: white;
+          box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1), 0 8px 16px rgba(139, 92, 246, 0.08);
+          transform: translateY(-1px);
+        }
+        
+        .btn-primary {
+          background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+          color: white;
+          border: none;
+          padding: 14px 28px;
+          border-radius: 12px;
+          font-weight: 600;
+          font-size: 15px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3), 0 4px 8px rgba(0, 0, 0, 0.1);
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .btn-primary::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+          transition: left 0.5s;
+        }
+        
+        .btn-primary:hover::before {
+          left: 100%;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+          transform: translateY(-3px);
+          box-shadow: 0 12px 32px rgba(139, 92, 246, 0.4), 0 8px 16px rgba(0, 0, 0, 0.15);
+        }
+        
+        .btn-primary:active:not(:disabled) {
+          transform: translateY(-1px);
+        }
+        
+        .btn-primary:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
+        }
+        
+        .btn-secondary {
+          background: white;
+          color: #475569;
+          border: 2px solid #E2E8F0;
+          padding: 12px 24px;
+          border-radius: 12px;
+          font-weight: 600;
+          font-size: 14px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+          border-color: #8B5CF6;
+          background: #F5F3FF;
+          color: #7C3AED;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 16px rgba(139, 92, 246, 0.15);
+        }
+
+        .btn-secondary:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        
+        .stat-card {
+          background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+          color: white;
+          padding: 24px;
+          border-radius: 16px;
+          box-shadow: 0 12px 32px rgba(139, 92, 246, 0.3);
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .stat-card::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          right: -50%;
+          width: 200%;
+          height: 200%;
+          background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+          animation: pulse 4s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 0.5; }
+          50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        
+        .table-modern {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 0;
+        }
+        
+        .table-modern th {
+          background: linear-gradient(135deg, #1E293B 0%, #334155 100%);
+          color: white;
+          padding: 18px 20px;
+          text-align: left;
+          font-weight: 600;
+          font-size: 13px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          white-space: nowrap;
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .table-modern th:first-child {
+          border-top-left-radius: 12px;
+        }
+        
+        .table-modern th:last-child {
+          border-top-right-radius: 12px;
+        }
+        
+        .table-modern td {
+          padding: 18px 20px;
+          border-bottom: 1px solid #F1F5F9;
+          color: #1E293B;
+          font-size: 14px;
+          font-weight: 500;
+        }
+        
+        .table-modern tbody tr {
+          transition: all 0.2s ease;
+        }
+        
+        .table-modern tbody tr:hover {
+          background: linear-gradient(90deg, #F8F9FF 0%, #F5F3FF 100%);
+          transform: scale(1.01);
+          box-shadow: 0 4px 12px rgba(139, 92, 246, 0.08);
+        }
+        
+        .table-modern tbody tr.selected {
+          background: linear-gradient(90deg, #EDE9FE 0%, #DDD6FE 100%);
+          border-left: 4px solid #8B5CF6;
+        }
+        
+        .badge-modern {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 14px;
+          border-radius: 10px;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.3px;
+        }
+        
+        .badge-success {
+          background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+          color: white;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        .badge-warning {
+          background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+          color: white;
+          box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+
+        .badge-error {
+          background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+          color: white;
+          box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .badge-info {
+          background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+          color: white;
+          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        
+        .spinning {
+          animation: spin 1s linear infinite;
+        }
+        
+        .step-number {
+          width: 40px;
+          height: 40px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 18px;
+          box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+        }
+
+        @keyframes gradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+
+        .result-card {
+          background: white;
+          border-radius: 16px;
+          padding: 20px;
+          border: 2px solid #F1F5F9;
+          transition: all 0.3s ease;
+        }
+
+        .result-card:hover {
+          border-color: #8B5CF6;
+          box-shadow: 0 8px 24px rgba(139, 92, 246, 0.15);
+          transform: translateY(-2px);
+        }
+
+        .barcode-data-display {
+          background: #F8FAFC;
+          border: 2px solid #E2E8F0;
+          border-radius: 10px;
+          padding: 12px 16px;
+          font-family: 'Courier New', monospace;
+          font-size: 15px;
+          font-weight: 600;
+          color: #1E293B;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          transition: all 0.2s ease;
+        }
+
+        .barcode-data-display:hover {
+          border-color: #8B5CF6;
+          background: white;
+        }
+
+        .copy-button {
+          background: transparent;
+          border: none;
+          padding: 6px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 6px;
+          transition: all 0.2s ease;
+          color: #64748B;
+        }
+
+        .copy-button:hover {
+          background: #F1F5F9;
+          color: #8B5CF6;
+          transform: scale(1.1);
+        }
+      `}</style>
+
+      <AnimatePresence mode="wait">
+        {!activeJob ? (
+          <motion.div
+            key="config"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+          >
+            {/* Configuration Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="glass-card"
+              style={{ padding: '40px', marginBottom: '32px' }}
+            >
+              {/* Header */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                marginBottom: '32px'
+              }}>
+                <ScanBarcode size={40} color="#8B5CF6" />
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '32px', fontWeight: 800, color: '#1E293B' }}>
+                    Barcode Extractor
+                  </h2>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '16px', color: '#64748B' }}>
+                    Extract barcodes from Workdrive images using AI
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 1: Workdrive Config */}
+              <div style={{ marginBottom: '40px' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  marginBottom: '24px'
+                }}>
+                  <div className="step-number">1</div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#1E293B' }}>
+                      Connect to Workdrive
+                    </h3>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748B' }}>
+                      Enter your Workdrive team and folder details
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: '20px' }}>
+  <div>
+    <label style={{
+      display: 'block',
+      marginBottom: '10px',
+      fontSize: '14px',
+      fontWeight: 600,
+      color: '#475569'
+    }}>Folder ID *</label>
+    <input
+      type="text"
+      className="input-modern"
+      value={config.folder_id}
+      onChange={(e) => setConfig({ ...config, folder_id: e.target.value })}
+      placeholder="Enter Workdrive folder ID"
+    />
+  </div>
+
+  <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+    <button
+      className="btn-primary"
+      onClick={loadFiles}
+      disabled={isLoadingFiles || !config.folder_id}
+      style={{ width: '100%', justifyContent: 'center' }}
+    >
+      {isLoadingFiles ? (
+        <>
+          <Loader2 size={18} className="spinning" />
+          Loading...
+        </>
+      ) : (
+        <>
+          <Folder size={18} />
+          Load Files
+        </>
+      )}
+    </button>
+  </div>
+</div>
+              </div>
+            </motion.div>
+
+            {/* Files Table */}
+            {files.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                {/* Stats Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '24px' }}>
+                  <div className="stat-card">
+                    <div style={{ position: 'relative', zIndex: 1 }}>
+                      <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
+                        TOTAL FILES
+                      </div>
+                      <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
+                        {filteredFiles.length}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="stat-card">
+                    <div style={{ position: 'relative', zIndex: 1 }}>
+                      <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
+                        SELECTED
+                      </div>
+                      <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
+                        {selectedFiles.size}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="stat-card">
+                    <div style={{ position: 'relative', zIndex: 1 }}>
+                      <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
+                        EST. TIME
+                      </div>
+                      <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
+                        {Math.ceil(selectedFiles.size * 2 / 60)}m
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="stat-card">
+                    <div style={{ position: 'relative', zIndex: 1 }}>
+                      <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
+                        EST. COST
+                      </div>
+                      <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
+                        ${(selectedFiles.size * 0.002).toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Toolbar */}
+                <div className="glass-card" style={{
+                  padding: '20px',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                    <Search size={20} color="#8B5CF6" />
+                    <input
+                      type="text"
+                      className="input-modern"
+                      placeholder="Search files..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      style={{ maxWidth: '400px' }}
+                    />
+                  </div>
+
+                  <button
+                    className="btn-primary"
+                    onClick={startExtraction}
+                    disabled={selectedFiles.size === 0}
+                    style={{ fontSize: '16px', padding: '14px 32px' }}
+                  >
+                    <Play size={20} />
+                    Process {selectedFiles.size} Files
+                  </button>
+                </div>
+
+                {/* Table */}
+                <div className="glass-card" style={{ overflow: 'hidden' }}>
+                  <div style={{ maxHeight: '600px', overflow: 'auto' }}>
+                    <table className="table-modern">
+                      <thead>
+                        <tr>
+                          <th style={{ width: '80px', textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedFiles.size > 0 && selectedFiles.size === files.length}
+                              onChange={toggleSelectAll}
+                              style={{
+                                width: '20px',
+                                height: '20px',
+                                cursor: 'pointer',
+                                accentColor: '#8B5CF6'
+                              }}
+                            />
+                          </th>
+                          <th>Filename</th>
+                          <th style={{ width: '150px' }}>Type</th>
+                          <th style={{ width: '150px', textAlign: 'right' }}>Size</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedFiles.map(file => (
+                          <tr
+                            key={file.file_id}
+                            className={selectedFiles.has(file.file_id) ? 'selected' : ''}
+                            onClick={() => toggleSelectFile(file.file_id)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={selectedFiles.has(file.file_id)}
+                                onChange={() => toggleSelectFile(file.file_id)}
+                                style={{
+                                  width: '20px',
+                                  height: '20px',
+                                  cursor: 'pointer',
+                                  accentColor: '#8B5CF6'
+                                }}
+                              />
+                            </td>
+                            <td style={{ fontWeight: 600, fontSize: '15px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <ImageIcon size={18} color="#8B5CF6" />
+                                {file.filename}
+                              </div>
+                            </td>
+                            <td style={{ fontFamily: 'monospace', fontSize: '13px', color: '#64748B', textTransform: 'uppercase' }}>
+                              {file.extension}
+                            </td>
+                            <td style={{ textAlign: 'right', fontSize: '14px', color: '#64748B' }}>
+                              {(file.size / 1024).toFixed(1)} KB
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination */}
+                  <div style={{
+                    padding: '20px',
+                    borderTop: '2px solid #F1F5F9',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft size={16} />
+                      Previous
+                    </button>
+
+                    <span style={{ fontWeight: 700, fontSize: '15px', color: '#475569' }}>
+                      Page {currentPage} of {totalPages}
+                    </span>
+
+                    <button
+                      className="btn-secondary"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
+        ) : (
+          // Processing Monitor View
+          <motion.div
+            key="processing"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="glass-card"
+              style={{ padding: '48px' }}
+            >
+              {/* Header with Back Button */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '32px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <Activity size={32} color="#8B5CF6" />
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#1E293B' }}>
+                      Processing Barcodes
+                    </h2>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748B', fontFamily: 'monospace' }}>
+                      {activeJob}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <span style={{
+                    padding: '12px 24px',
+                    borderRadius: '12px',
+                    background: jobStatus?.status === 'running'
+                      ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)'
+                      : jobStatus?.status === 'completed'
+                        ? 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)'
+                        : 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    letterSpacing: '0.5px',
+                    textTransform: 'uppercase',
+                    boxShadow: jobStatus?.status === 'running'
+                      ? '0 8px 20px rgba(16, 185, 129, 0.4)'
+                      : '0 8px 20px rgba(59, 130, 246, 0.4)'
+                  }}>
+                    {jobStatus?.status === 'running' && <Loader2 size={16} className="spinning" />}
+                    {jobStatus?.status || 'Loading'}
+                  </span>
+
+                  {jobStatus?.status === 'completed' && (
+                    <button
+                      className="btn-secondary"
+                      onClick={handleBackToMain}
+                      style={{ gap: '8px' }}
+                    >
+                      <ArrowLeft size={18} />
+                      Back to Main
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div style={{
+                background: '#F1F5F9',
+                height: '48px',
+                borderRadius: '24px',
+                overflow: 'hidden',
+                marginBottom: '32px',
+                position: 'relative',
+                boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.1)'
+              }}>
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${jobStatus?.progress?.progress_percent || 0}%` }}
+                  transition={{ duration: 0.5, ease: 'easeOut' }}
+                  style={{
+                    background: 'linear-gradient(90deg, #8B5CF6, #EC4899, #8B5CF6)',
+                    backgroundSize: '200% 100%',
+                    animation: jobStatus?.status === 'running' ? 'gradient 3s ease infinite' : 'none',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontWeight: 800,
+                    fontSize: '18px',
+                    letterSpacing: '1px'
+                  }}
+                >
+                  {(jobStatus?.progress?.progress_percent || 0).toFixed(1)}%
+                </motion.div>
+              </div>
+
+              {/* Stats Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '20px', marginBottom: '32px' }}>
+                {[
+                  { label: 'Total', value: jobStatus?.progress?.total_files || 0, color: '#8B5CF6', icon: Database },
+                  { label: 'Processed', value: jobStatus?.progress?.processed_files || 0, color: '#3B82F6', icon: Activity },
+                  { label: 'Success', value: jobStatus?.progress?.successful_files || 0, color: '#10B981', icon: CheckCircle2 },
+                  { label: 'Failed', value: jobStatus?.progress?.failed_files || 0, color: '#EF4444', icon: XCircle },
+                  { label: 'Speed', value: processingSpeed > 0 ? `${processingSpeed.toFixed(1)}/min` : '—', color: '#F59E0B', icon: TrendingUp },
+                  { label: 'ETA', value: estimatedTimeRemaining ? `${Math.ceil(estimatedTimeRemaining)}m` : '—', color: '#EC4899', icon: Clock }
+                ].map((stat, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    style={{
+                      background: 'white',
+                      padding: '24px',
+                      borderRadius: '16px',
+                      textAlign: 'center',
+                      border: '2px solid #F1F5F9',
+                      transition: 'all 0.3s ease'
+                    }}
+                    whileHover={{
+                      borderColor: stat.color,
+                      transform: 'translateY(-4px)',
+                      boxShadow: `0 12px 24px ${stat.color}20`
+                    }}
+                  >
+                    <stat.icon size={24} color={stat.color} style={{ marginBottom: '8px' }} />
+                    <div style={{
+                      fontSize: '36px',
+                      fontWeight: 800,
+                      color: stat.color,
+                      lineHeight: 1,
+                      marginBottom: '8px'
+                    }}>
+                      {stat.value}
+                    </div>
+                    <div style={{
+                      fontSize: '12px',
+                      color: '#64748B',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>
+                      {stat.label}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Cost Banner */}
+              <div style={{
+                background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                padding: '24px 32px',
+                borderRadius: '16px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                boxShadow: '0 12px 32px rgba(16, 185, 129, 0.3)',
+                marginBottom: '32px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <DollarSign size={28} color="white" />
+                  <span style={{ fontSize: '18px', fontWeight: 600, color: 'white' }}>
+                    Total Processing Cost
+                  </span>
+                </div>
+                <span style={{ fontSize: '36px', fontWeight: 800, color: 'white' }}>
+                  ${(jobStatus?.cost?.total_cost_usd || 0).toFixed(4)}
+                </span>
+              </div>
+
+              {/* Recent Results Preview */}
+              {jobResults.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ marginBottom: '32px' }}
+                >
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '16px'
+                  }}>
+                    <h3 style={{
+                      margin: 0,
+                      fontSize: '20px',
+                      fontWeight: 700,
+                      color: '#1E293B',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px'
+                    }}>
+                      <BarChart3 size={24} color="#8B5CF6" />
+                      Extracted Barcodes
+                    </h3>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <span style={{
+                        fontSize: '14px',
+                        color: '#64748B',
+                        fontWeight: 600
+                      }}>
+                        Showing {jobResults.length} results
+                      </span>
+                      {jobStatus?.status === 'completed' && (
+                        <button
+                          className="btn-secondary"
+                          onClick={downloadResults}
+                          style={{ fontSize: '13px', padding: '8px 16px' }}
+                        >
+                          <Download size={16} />
+                          Export CSV
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '16px'
+                  }}>
+                    {jobResults.slice(0, 10).map((result, idx) => (
+                      <motion.div
+                        key={result.id || idx}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: idx * 0.05 }}
+                        className="result-card"
+                      >
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'flex-start',
+                          marginBottom: '12px'
+                        }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{
+                              fontSize: '14px',
+                              fontWeight: 700,
+                              color: '#1E293B',
+                              marginBottom: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px'
+                            }}>
+                              <ImageIcon size={16} color="#8B5CF6" />
+                              {result.filename || 'Unknown File'}
+                            </div>
+                            <div style={{
+                              fontSize: '11px',
+                              color: '#64748B',
+                              fontFamily: 'monospace'
+                            }}>
+                              File ID: {result.file_id}
+                            </div>
+                          </div>
+                          <span className={`badge-modern ${result.status === 'success' ? 'badge-success' : 'badge-error'}`}>
+                            {result.status === 'success' ? (
+                              <>
+                                <CheckCircle2 size={12} />
+                                Success
+                              </>
+                            ) : (
+                              <>
+                                <XCircle size={12} />
+                                Failed
+                              </>
+                            )}
+                          </span>
+                        </div>
+
+                        {result.status === 'success' && result.barcode_data ? (
+  <>
+    {/* Barcode Type Badge */}
+    {result.barcode_type && (
+      <div style={{ marginBottom: '10px' }}>
+        <span className="badge-modern badge-info">
+          <ScanBarcode size={12} />
+          {result.barcode_type}
+        </span>
+        {result.all_barcodes && result.all_barcodes.length > 1 && (
+          <span className="badge-modern badge-success" style={{ marginLeft: '8px' }}>
+            {result.all_barcodes.length} barcodes found
+          </span>
+        )}
+      </div>
+    )}
+
+    {/* Primary Barcode Display */}
+    <div className="barcode-data-display">
+      <div style={{
+        flex: 1,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }}>
+        {result.barcode_data}
+      </div>
+      <button
+        className="copy-button"
+        onClick={() => copyToClipboard(result.barcode_data)}
+        title="Copy barcode data"
+      >
+        <Copy size={16} />
+      </button>
+    </div>
+
+    {/* Show all barcodes if multiple */}
+    {result.all_barcodes && result.all_barcodes.length > 1 && (
+      <details style={{ marginTop: '12px' }}>
+        <summary style={{
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 600,
+          color: '#8B5CF6',
+          padding: '8px',
+          borderRadius: '6px',
+          background: '#F5F3FF'
+        }}>
+          View all {result.all_barcodes.length} barcodes
+        </summary>
+        <div style={{
+          marginTop: '8px',
+          maxHeight: '200px',
+          overflowY: 'auto',
+          padding: '8px',
+          background: '#FAFAFA',
+          borderRadius: '8px'
+        }}>
+          {result.all_barcodes.map((bc, idx) => (
+            <div key={idx} style={{
+              padding: '6px 8px',
+              fontSize: '11px',
+              fontFamily: 'monospace',
+              borderBottom: idx < result.all_barcodes.length - 1 ? '1px solid #E5E7EB' : 'none',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <span>{bc.data}</span>
+              <button
+                className="copy-button"
+                onClick={() => copyToClipboard(bc.data)}
+                style={{ padding: '4px' }}
+              >
+                <Copy size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </details>
+    )}
+  </>
+) : (
+                          <div style={{
+                            padding: '12px',
+                            background: '#FEF2F2',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            color: '#DC2626',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                          }}>
+                            <AlertCircle size={16} />
+                            {result.error_message || 'No barcode detected'}
+                          </div>
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
+
+                  {/* Show More Button */}
+                  {jobResults.length > 10 && (
+                    <div style={{
+                      marginTop: '16px',
+                      textAlign: 'center'
+                    }}>
+                      <button
+                        className="btn-secondary"
+                        onClick={() => {
+                          // Could implement pagination or show all results
+                          toast.success('Showing first 10 results. Export CSV for full data.')
+                        }}
+                      >
+                        <FileText size={16} />
+                        Viewing 10 of {jobResults.length} results
+                      </button>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {/* Completion Actions */}
+              {jobStatus?.status === 'completed' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '16px'
+                  }}
+                >
+                  <button
+                    className="btn-secondary"
+                    onClick={handleBackToMain}
+                    style={{
+                      fontSize: '16px',
+                      padding: '18px',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <ArrowLeft size={20} />
+                    Back to Files
+                  </button>
+
+                  <button
+                    className="btn-primary"
+                    onClick={() => {
+                      // Reset everything and start fresh
+                      setActiveJob(null)
+                      setJobStatus(null)
+                      setIsPolling(false)
+                      setJobResults([])
+                      setFiles([])
+                      setSelectedFiles(new Set())
+                      setSearchQuery('')
+                      setConfig({ team_id: '', folder_id: '' })
+                    }}
+                    style={{
+                      fontSize: '16px',
+                      padding: '18px',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <RefreshCw size={20} />
+                    Start New Extraction
+                  </button>
+                </motion.div>
+              )}
+
+              {/* Failed State Actions */}
+              {jobStatus?.status === 'failed' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{
+                    background: 'linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%)',
+                    padding: '24px',
+                    borderRadius: '16px',
+                    marginBottom: '16px'
+                  }}
+                >
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '12px'
+                  }}>
+                    <AlertCircle size={24} color="#DC2626" />
+                    <h4 style={{
+                      margin: 0,
+                      fontSize: '18px',
+                      fontWeight: 700,
+                      color: '#DC2626'
+                    }}>
+                      Job Failed
+                    </h4>
+                  </div>
+                  <p style={{
+                    margin: 0,
+                    fontSize: '14px',
+                    color: '#991B1B',
+                    lineHeight: 1.6
+                  }}>
+                    The barcode extraction job encountered an error. You can try again or contact support if the issue persists.
+                  </p>
+                </motion.div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
 }

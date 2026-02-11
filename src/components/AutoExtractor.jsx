@@ -1,34 +1,12 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast, { Toaster } from 'react-hot-toast'
 import {
-  Play,
-  CheckCircle2,
-  XCircle,
-  Eye,
-  Activity,
-  RefreshCw,
-  Loader2,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Settings,
-  List,
-  Plus,
-  Trash2,
-  Database,
-  Zap,
-  AlertCircle,
-  TrendingUp,
-  Clock,
-  DollarSign,
-  Sparkles,
-  Filter,
-  Download,
-  ArrowLeft,
-  FileText,
-  Image as ImageIcon,
-  BarChart3
+  Play, CheckCircle2, XCircle, Activity, RefreshCw, Loader2, Search,
+  ChevronLeft, ChevronRight, List, Plus, Trash2, Database, Zap, AlertCircle,
+  TrendingUp, Clock, DollarSign, Sparkles, Filter, ArrowLeft, FileText,
+  FileImage, BarChart3, X, SlidersHorizontal, MinusCircle, CheckSquare,
+  Square, MousePointerClick, Layers, Eye, EyeOff, Columns
 } from 'lucide-react'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -38,8 +16,7 @@ export default function AutoExtractor() {
     app_link_name: 'teameverest/iatc-scholarship',
     report_link_name: 'Active_Scholar_Fee_Request_Signup_Report',
     bank_field_name: '',
-    bill_field_name: '',
-    filter_criteria: ''
+    bill_field_name: ''
   })
 
   const [isLoadingFields, setIsLoadingFields] = useState(false)
@@ -50,13 +27,19 @@ export default function AutoExtractor() {
   })
 
   const [filters, setFilters] = useState([])
-  const [records, setRecords] = useState([])
+  const [allRecords, setAllRecords] = useState([])
   const [isLoadingRecords, setIsLoadingRecords] = useState(false)
   const [selectedRecords, setSelectedRecords] = useState(new Set())
+  const [totalRecordsAvailable, setTotalRecordsAvailable] = useState(0)
+
+  // ✅ NEW: Field visibility management
+  const [visibleFields, setVisibleFields] = useState(new Set(['student_name', 'record_id', 'has_bank_image', 'has_bill_image']))
+  const [showFieldSelector, setShowFieldSelector] = useState(false)
 
   const [currentPage, setCurrentPage] = useState(1)
-  const [recordsPerPage] = useState(50)
+  const [recordsPerPage, setRecordsPerPage] = useState(50)
   const [searchQuery, setSearchQuery] = useState('')
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
 
   const [activeJob, setActiveJob] = useState(null)
   const [jobStatus, setJobStatus] = useState(null)
@@ -68,34 +51,20 @@ export default function AutoExtractor() {
   const [lastUpdateTime, setLastUpdateTime] = useState(Date.now())
   const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState(null)
 
-  // Polling effect
+  const [selectionMode, setSelectionMode] = useState('manual')
+
   useEffect(() => {
     let interval
     if (isPolling && activeJob) {
-      interval = setInterval(() => {
-        fetchJobStatus(activeJob)
-      }, 1000)
+      interval = setInterval(() => fetchJobStatus(activeJob), 1000)
     }
     return () => clearInterval(interval)
   }, [isPolling, activeJob])
 
   useEffect(() => {
-    console.log('🔍 Selection State Changed:', {
-      selectedCount: selectedRecords.size,
-      selectedIds: Array.from(selectedRecords).slice(0, 10),
-      totalRecords: records.length,
-      filteredRecords: filteredRecords.length,
-      paginatedRecords: paginatedRecords.length,
-      currentPage: currentPage
-    })
-  }, [selectedRecords])
-
-  // Calculate estimated time remaining
-  useEffect(() => {
     if (jobStatus && processingSpeed > 0) {
       const remaining = jobStatus.progress?.total_records - jobStatus.progress?.processed_records
-      const minutesRemaining = remaining / processingSpeed
-      setEstimatedTimeRemaining(minutesRemaining)
+      setEstimatedTimeRemaining(remaining / processingSpeed)
     }
   }, [jobStatus, processingSpeed])
 
@@ -117,7 +86,6 @@ export default function AutoExtractor() {
       })
 
       const data = await response.json()
-
       if (data.success) {
         setAvailableFields({
           file_fields: data.file_fields || [],
@@ -138,66 +106,20 @@ export default function AutoExtractor() {
     }
   }
 
-  const buildFilterCriteria = () => {
-    if (filters.length === 0) return ''
-
-    const criteria = filters.map(f => {
-      const { field, operator, value } = f
-
-      if (operator === 'contains') {
-        return `${field}.contains("${value}")`
-      } else if (operator === '==') {
-        return `${field} == "${value}"`
-      } else if (operator === '!=') {
-        return `${field} != "${value}"`
-      } else if (operator === '>') {
-        return `${field} > ${value}`
-      } else if (operator === '<') {
-        return `${field} < ${value}`
-      } else if (operator === 'is_null') {
-        return `${field} == null`
-      } else if (operator === 'is_not_null') {
-        return `${field} != null`
-      }
-      return ''
-    }).filter(Boolean).join(' && ')
-
-    return criteria
-  }
-
+  // ✅ UPDATED: Load ALL records without filters
   const loadRecords = async () => {
     setIsLoadingRecords(true)
-
     try {
       const formData = new FormData()
       formData.append('app_link_name', config.app_link_name)
       formData.append('report_link_name', config.report_link_name)
-
       if (config.bank_field_name) formData.append('bank_field_name', config.bank_field_name)
       if (config.bill_field_name) formData.append('bill_field_name', config.bill_field_name)
 
-      // ✅ FIX: Send filters as JSON array, not pre-built string
-      if (filters.length > 0) {
-        // Convert frontend operators to backend format
-        const backendFilters = filters.map(f => ({
-          field: f.field,
-          operator: f.operator === '==' ? 'equals' :
-            f.operator === '!=' ? 'not equals' :
-              f.operator === 'is_null' ? 'is empty' :
-                f.operator === 'is_not_null' ? 'is not empty' :
-                  f.operator === 'contains' ? 'contains' :
-                    f.operator === '>' ? 'greater than' :
-                      f.operator === '<' ? 'less than' : f.operator,
-          value: f.value || ''
-        }))
-
-        formData.append('filter_criteria', JSON.stringify(backendFilters))
-        console.log('Sending filters:', backendFilters) // Debug log
-      }
-
+      // ✅ NO FILTERS - Always fetch ALL
       formData.append('store_images', 'false')
       formData.append('fetch_all', 'true')
-      formData.append('max_records_limit', '3000')
+      formData.append('max_records_limit', '5000')
 
       const response = await fetch(`${API_BASE_URL}/ocr/auto-extract/preview`, {
         method: 'POST',
@@ -205,38 +127,54 @@ export default function AutoExtractor() {
       })
 
       const data = await response.json()
+
       if (data.success) {
-        const fullRecords = data.sample_records || []
-        setRecords(fullRecords)
+        const loadedRecords = data.sample_records || []
+        
+        // Store ALL records with ALL fields
+        setAllRecords(loadedRecords)
+        setTotalRecordsAvailable(data.total_records || loadedRecords.length)
         setSelectedRecords(new Set())
         setCurrentPage(1)
-
-        if (data.already_extracted_count > 0) {
-          toast.success(
-            `✅ Loaded ${fullRecords.length} new records\n(Excluded ${data.already_extracted_count} already extracted)`,
-            {
-              icon: '🔍',
-              style: { borderRadius: '12px', background: '#8B5CF6', color: 'white' },
-              duration: 4000
-            }
+        
+        // ✅ Auto-detect available fields from first record
+        if (loadedRecords.length > 0) {
+          const firstRecord = loadedRecords[0]
+          const detectedFields = Object.keys(firstRecord).filter(key => 
+            !['has_bank_image', 'has_bill_image'].includes(key)
           )
-        } else {
-          toast.success(`✅ Loaded ${fullRecords.length} records`, {
+          
+          // Update available fields if not already set
+          if (availableFields.all_fields.length === 0) {
+            setAvailableFields(prev => ({
+              ...prev,
+              all_fields: detectedFields
+            }))
+          }
+        }
+        
+        console.log('✅ Loaded records:', loadedRecords.length)
+        console.log('✅ Sample record fields:', loadedRecords[0] ? Object.keys(loadedRecords[0]) : [])
+        
+        toast.success(
+          `✅ Loaded ${loadedRecords.length} records` + 
+          (data.already_extracted_count > 0 ? `\n(Excluded ${data.already_extracted_count} already processed)` : ''),
+          {
             icon: '⚡',
             style: { borderRadius: '12px', background: '#8B5CF6', color: 'white' },
-            duration: 3000
-          })
-        }
+            duration: 4000
+          }
+        )
       } else {
         toast.error(`Error: ${data.error}`)
       }
     } catch (error) {
+      console.error('❌ Load records error:', error)
       toast.error(`Failed to load records: ${error.message}`)
     } finally {
       setIsLoadingRecords(false)
     }
   }
-
 
   const startExtraction = async () => {
     if (selectedRecords.size === 0) {
@@ -248,28 +186,10 @@ export default function AutoExtractor() {
       const formData = new FormData()
       formData.append('app_link_name', config.app_link_name)
       formData.append('report_link_name', config.report_link_name)
-
       if (config.bank_field_name) formData.append('bank_field_name', config.bank_field_name)
       if (config.bill_field_name) formData.append('bill_field_name', config.bill_field_name)
 
-      // ✅ FIX: Send filters as JSON array, not pre-built string
-      if (filters.length > 0) {
-        const backendFilters = filters.map(f => ({
-          field: f.field,
-          operator: f.operator === '==' ? 'equals' :
-            f.operator === '!=' ? 'not equals' :
-              f.operator === 'is_null' ? 'is empty' :
-                f.operator === 'is_not_null' ? 'is not empty' :
-                  f.operator === 'contains' ? 'contains' :
-                    f.operator === '>' ? 'greater than' :
-                      f.operator === '<' ? 'less than' : f.operator,
-          value: f.value || ''
-        }))
-
-        formData.append('filter_criteria', JSON.stringify(backendFilters))
-        console.log('Starting extraction with filters:', backendFilters) // Debug log
-      }
-
+      // ✅ NO FILTERS - just send selected IDs
       formData.append('selected_record_ids', JSON.stringify([...selectedRecords]))
 
       const response = await fetch(`${API_BASE_URL}/ocr/auto-extract/start`, {
@@ -280,11 +200,7 @@ export default function AutoExtractor() {
       const data = await response.json()
 
       if (response.status === 409) {
-        toast.error(`⚠️ ${data.message}`, {
-          duration: 6000,
-          style: { borderRadius: '12px', background: '#EF4444', color: 'white' }
-        })
-
+        toast.error(`⚠️ ${data.message}`, { duration: 6000 })
         if (data.active_job_id) {
           setActiveJob(data.active_job_id)
           setIsPolling(true)
@@ -299,10 +215,7 @@ export default function AutoExtractor() {
         setLastUpdateTime(Date.now())
         setProcessingSpeed(0)
         setJobResults([])
-        toast.success(`🚀 Processing started!`, {
-          duration: 5000,
-          style: { borderRadius: '12px', background: '#8B5CF6', color: 'white' }
-        })
+        toast.success('🚀 Processing started!')
       } else {
         toast.error(`Error: ${data.error}`)
       }
@@ -311,7 +224,6 @@ export default function AutoExtractor() {
     }
   }
 
-
   const fetchJobStatus = async (jobId) => {
     try {
       const response = await fetch(`${API_BASE_URL}/ocr/auto-extract/status/${jobId}`)
@@ -319,30 +231,22 @@ export default function AutoExtractor() {
 
       if (data.success) {
         setJobStatus(data)
-
         const now = Date.now()
         const processed = data.progress?.processed_records || 0
 
         if (processed > lastProcessedCount) {
           const timeDiff = (now - lastUpdateTime) / 1000 / 60
           const recordsDiff = processed - lastProcessedCount
-          const speed = recordsDiff / timeDiff
-          setProcessingSpeed(speed)
+          setProcessingSpeed(recordsDiff / timeDiff)
           setLastProcessedCount(processed)
           setLastUpdateTime(now)
         }
 
         if (data.status === 'completed' || data.status === 'failed') {
           setIsPolling(false)
-
-          // Fetch results
           fetchJobResults(jobId)
-
           if (data.status === 'completed') {
-            toast.success('✅ Extraction completed!', {
-              icon: '🎉',
-              style: { borderRadius: '12px', background: '#10B981', color: 'white' }
-            })
+            toast.success('✅ Extraction completed!', { icon: '🎉' })
           } else {
             toast.error('❌ Extraction failed')
           }
@@ -357,10 +261,7 @@ export default function AutoExtractor() {
     try {
       const response = await fetch(`${API_BASE_URL}/ocr/auto-extract/results/${jobId}?limit=10`)
       const data = await response.json()
-
-      if (data.success) {
-        setJobResults(data.results || [])
-      }
+      if (data.success) setJobResults(data.results || [])
     } catch (error) {
       console.error('Failed to fetch results:', error)
     }
@@ -371,39 +272,118 @@ export default function AutoExtractor() {
     setJobStatus(null)
     setIsPolling(false)
     setJobResults([])
-    // Refresh records to update already-extracted count
     loadRecords()
   }
 
-  const toggleSelectAll = (e) => {
-    e?.stopPropagation()
-    e?.preventDefault()
+  const addFilter = () => {
+    // Get available fields from records
+    const fieldOptions = allRecords.length > 0 
+      ? Object.keys(allRecords[0]).filter(key => !['has_bank_image', 'has_bill_image'].includes(key))
+      : availableFields.all_fields
 
-    const timestamp = Date.now()
-    console.log(`🔄 Toggle Select All called at ${timestamp}`)
-    console.log('Current selection size:', selectedRecords.size)
-    console.log('Total records:', records.length)
-
-    // Simple approach: if any records are selected, clear all. Otherwise, select all.
-    if (selectedRecords.size > 0) {
-      console.log('✅ Clearing all selections')
-      setSelectedRecords(new Set())
-    } else {
-      console.log('✅ Selecting all records')
-      // Build the set step by step to debug
-      const newSet = new Set()
-      records.forEach(record => {
-        newSet.add(record.record_id)
-      })
-      console.log('Built new Set with size:', newSet.size)
-      console.log('First 10 IDs:', Array.from(newSet).slice(0, 10))
-      setSelectedRecords(newSet)
-      console.log('✅ setSelectedRecords called')
-    }
+    setFilters([...filters, {
+      id: Date.now(),
+      field: fieldOptions[0] || '',
+      operator: '==',
+      value: ''
+    }])
   }
 
+  const removeFilter = (id) => setFilters(filters.filter(f => f.id !== id))
 
-  const toggleSelectRecord = (recordId) => {
+  const updateFilter = (id, key, value) => {
+    setFilters(filters.map(f => f.id === id ? { ...f, [key]: value } : f))
+  }
+
+  const clearAllFilters = () => {
+    setFilters([])
+    setSearchQuery('')
+    toast.success('All filters cleared')
+  }
+
+  // ✅ NEW: Field visibility functions
+  const toggleFieldVisibility = (fieldName) => {
+    const newVisible = new Set(visibleFields)
+    if (newVisible.has(fieldName)) {
+      newVisible.delete(fieldName)
+    } else {
+      newVisible.add(fieldName)
+    }
+    setVisibleFields(newVisible)
+  }
+
+  const showAllFields = () => {
+    const allFieldNames = allRecords.length > 0 
+      ? Object.keys(allRecords[0])
+      : availableFields.all_fields
+    setVisibleFields(new Set(allFieldNames))
+    toast.success(`Showing all ${allFieldNames.length} fields`)
+  }
+
+  const showDefaultFields = () => {
+    setVisibleFields(new Set(['student_name', 'record_id', 'has_bank_image', 'has_bill_image']))
+    toast.success('Reset to default fields')
+  }
+
+  const selectFiltered = () => {
+    const allFilteredIds = new Set(filteredRecords.map(r => r.record_id))
+    setSelectedRecords(allFilteredIds)
+    setSelectionMode('filtered')
+    toast.success(`✅ Selected ${allFilteredIds.size} filtered records`, {
+      duration: 3000,
+      style: { borderRadius: '12px', background: '#10B981', color: 'white' }
+    })
+  }
+
+  const selectAll = () => {
+    const allRecordIds = new Set(allRecords.map(r => r.record_id))
+    setSelectedRecords(allRecordIds)
+    setSelectionMode('all')
+    toast.success(`✅ Selected all ${allRecordIds.size} records`, {
+      duration: 3000,
+      style: { borderRadius: '12px', background: '#10B981', color: 'white' }
+    })
+  }
+
+  const selectNone = () => {
+    setSelectedRecords(new Set())
+    setSelectionMode('manual')
+    toast.success('Selection cleared')
+  }
+
+  const selectRange = (count) => {
+    setSelectedRecords(new Set(filteredRecords.slice(0, count).map(r => r.record_id)))
+    setSelectionMode('manual')
+    toast.success(`Selected first ${count} records`)
+  }
+
+  const selectByCondition = (condition) => {
+    let selected
+    switch (condition) {
+      case 'has_bank':
+        selected = filteredRecords.filter(r => r.has_bank_image)
+        break
+      case 'has_bill':
+        selected = filteredRecords.filter(r => r.has_bill_image)
+        break
+      case 'has_both':
+        selected = filteredRecords.filter(r => r.has_bank_image && r.has_bill_image)
+        break
+      case 'missing_bank':
+        selected = filteredRecords.filter(r => !r.has_bank_image)
+        break
+      case 'missing_bill':
+        selected = filteredRecords.filter(r => !r.has_bill_image)
+        break
+      default:
+        selected = []
+    }
+    setSelectedRecords(new Set(selected.map(r => r.record_id)))
+    setSelectionMode('manual')
+    toast.success(`Selected ${selected.length} records`)
+  }
+
+  const toggleRecord = (recordId) => {
     const newSelected = new Set(selectedRecords)
     if (newSelected.has(recordId)) {
       newSelected.delete(recordId)
@@ -411,32 +391,91 @@ export default function AutoExtractor() {
       newSelected.add(recordId)
     }
     setSelectedRecords(newSelected)
+    setSelectionMode('manual')
   }
 
-  const addFilter = () => {
-    setFilters([...filters, {
-      id: Date.now(),
-      field: availableFields.text_fields[0] || '',
-      operator: '==',
-      value: ''
-    }])
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }))
   }
 
-  const removeFilter = (id) => {
-    setFilters(filters.filter(f => f.id !== id))
-  }
-
-  const updateFilter = (id, key, value) => {
-    setFilters(filters.map(f =>
-      f.id === id ? { ...f, [key]: value } : f
-    ))
-  }
-
+  // ✅ CLIENT-SIDE FILTERING - Applied to all records
   const filteredRecords = useMemo(() => {
-    return records.filter(record =>
-      record.student_name?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  }, [records, searchQuery])
+    let filtered = [...allRecords]
+
+    // Apply custom filters
+    if (filters.length > 0) {
+      filtered = filtered.filter(record => {
+        return filters.every(filter => {
+          const fieldValue = String(record[filter.field] || '').toLowerCase()
+          const filterValue = String(filter.value || '').toLowerCase()
+          
+          switch (filter.operator) {
+            case '==':
+              return fieldValue === filterValue
+            case '!=':
+              return fieldValue !== filterValue
+            case 'contains':
+              return fieldValue.includes(filterValue)
+            case 'not_contains':
+              return !fieldValue.includes(filterValue)
+            case '>':
+              return parseFloat(fieldValue) > parseFloat(filterValue)
+            case '<':
+              return parseFloat(fieldValue) < parseFloat(filterValue)
+            case '>=':
+              return parseFloat(fieldValue) >= parseFloat(filterValue)
+            case '<=':
+              return parseFloat(fieldValue) <= parseFloat(filterValue)
+            case 'is_null':
+              return !fieldValue || fieldValue === ''
+            case 'is_not_null':
+              return fieldValue && fieldValue !== ''
+            default:
+              return true
+          }
+        })
+      })
+    }
+
+    // Apply search query
+    if (searchQuery) {
+      filtered = filtered.filter(record => {
+        const searchLower = searchQuery.toLowerCase()
+        return Object.values(record).some(value => 
+          String(value).toLowerCase().includes(searchLower)
+        )
+      })
+    }
+
+    // Apply sorting
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        const aVal = a[sortConfig.key]
+        const bVal = b[sortConfig.key]
+        
+        if (typeof aVal === 'boolean') {
+          return sortConfig.direction === 'asc' 
+            ? (aVal === bVal ? 0 : aVal ? -1 : 1)
+            : (aVal === bVal ? 0 : aVal ? 1 : -1)
+        }
+        
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1
+        return 0
+      })
+    }
+
+    return filtered
+  }, [allRecords, filters, searchQuery, sortConfig])
+
+  // Get displayable fields
+  const displayableFields = useMemo(() => {
+    if (allRecords.length === 0) return []
+    return Object.keys(allRecords[0])
+  }, [allRecords])
 
   const totalPages = Math.ceil(filteredRecords.length / recordsPerPage)
   const startIndex = (currentPage - 1) * recordsPerPage
@@ -445,31 +484,18 @@ export default function AutoExtractor() {
 
   return (
     <div style={{ maxWidth: '1800px', margin: '0 auto', padding: '24px' }}>
-      <Toaster
-        position="top-right"
-        toastOptions={{ duration: 4000 }}
-        containerStyle={{ zIndex: 9999 }}
-      />
+      <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
 
       <style>{`
-        * {
-          box-sizing: border-box;
-        }
-        
+        * { box-sizing: border-box; }
         .glass-card {
           background: rgba(255, 255, 255, 0.98);
           backdrop-filter: blur(40px);
           border-radius: 24px;
           border: 1px solid rgba(139, 92, 246, 0.1);
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.05), 0 0 1px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.05);
           transition: all 0.3s ease;
         }
-        
-        .glass-card:hover {
-          box-shadow: 0 30px 90px rgba(139, 92, 246, 0.12);
-          transform: translateY(-2px);
-        }
-        
         .input-modern, .select-modern {
           background: #F8FAFC;
           border: 2px solid #E2E8F0;
@@ -477,20 +503,16 @@ export default function AutoExtractor() {
           padding: 14px 18px;
           font-size: 15px;
           font-weight: 500;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.3s ease;
           width: 100%;
           color: #1E293B;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
-        
         .input-modern:focus, .select-modern:focus {
           outline: none;
           border-color: #8B5CF6;
           background: white;
-          box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1), 0 8px 16px rgba(139, 92, 246, 0.08);
-          transform: translateY(-1px);
+          box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
         }
-        
         .btn-primary {
           background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
           color: white;
@@ -503,42 +525,17 @@ export default function AutoExtractor() {
           display: inline-flex;
           align-items: center;
           gap: 10px;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3), 0 4px 8px rgba(0, 0, 0, 0.1);
-          position: relative;
-          overflow: hidden;
+          transition: all 0.3s ease;
+          box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);
         }
-        
-        .btn-primary::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: -100%;
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-          transition: left 0.5s;
-        }
-        
-        .btn-primary:hover::before {
-          left: 100%;
-        }
-        
         .btn-primary:hover:not(:disabled) {
           transform: translateY(-3px);
-          box-shadow: 0 12px 32px rgba(139, 92, 246, 0.4), 0 8px 16px rgba(0, 0, 0, 0.15);
+          box-shadow: 0 12px 32px rgba(139, 92, 246, 0.4);
         }
-        
-        .btn-primary:active:not(:disabled) {
-          transform: translateY(-1px);
-        }
-        
         .btn-primary:disabled {
           opacity: 0.6;
           cursor: not-allowed;
-          transform: none;
         }
-        
         .btn-secondary {
           background: white;
           color: #475569;
@@ -551,49 +548,26 @@ export default function AutoExtractor() {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.3s ease;
         }
-        
         .btn-secondary:hover {
           border-color: #8B5CF6;
           background: #F5F3FF;
           color: #7C3AED;
           transform: translateY(-2px);
-          box-shadow: 0 8px 16px rgba(139, 92, 246, 0.15);
         }
-        
         .stat-card {
           background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
           color: white;
           padding: 24px;
           border-radius: 16px;
           box-shadow: 0 12px 32px rgba(139, 92, 246, 0.3);
-          position: relative;
-          overflow: hidden;
         }
-        
-        .stat-card::before {
-          content: '';
-          position: absolute;
-          top: -50%;
-          right: -50%;
-          width: 200%;
-          height: 200%;
-          background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
-          animation: pulse 4s ease-in-out infinite;
-        }
-        
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 0.5; }
-          50% { transform: scale(1.1); opacity: 0.8; }
-        }
-        
         .table-modern {
           width: 100%;
           border-collapse: separate;
           border-spacing: 0;
         }
-        
         .table-modern th {
           background: linear-gradient(135deg, #1E293B 0%, #334155 100%);
           color: white;
@@ -603,21 +577,17 @@ export default function AutoExtractor() {
           font-size: 13px;
           text-transform: uppercase;
           letter-spacing: 1px;
-          white-space: nowrap;
           position: sticky;
           top: 0;
           z-index: 10;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          cursor: pointer;
+          user-select: none;
         }
-        
-        .table-modern th:first-child {
-          border-top-left-radius: 12px;
+        .table-modern th:hover {
+          background: linear-gradient(135deg, #334155 0%, #475569 100%);
         }
-        
-        .table-modern th:last-child {
-          border-top-right-radius: 12px;
-        }
-        
+        .table-modern th:first-child { border-top-left-radius: 12px; }
+        .table-modern th:last-child { border-top-right-radius: 12px; }
         .table-modern td {
           padding: 18px 20px;
           border-bottom: 1px solid #F1F5F9;
@@ -625,22 +595,17 @@ export default function AutoExtractor() {
           font-size: 14px;
           font-weight: 500;
         }
-        
         .table-modern tbody tr {
           transition: all 0.2s ease;
+          cursor: pointer;
         }
-        
         .table-modern tbody tr:hover {
           background: linear-gradient(90deg, #F8F9FF 0%, #F5F3FF 100%);
-          transform: scale(1.01);
-          box-shadow: 0 4px 12px rgba(139, 92, 246, 0.08);
         }
-        
         .table-modern tbody tr.selected {
           background: linear-gradient(90deg, #EDE9FE 0%, #DDD6FE 100%);
           border-left: 4px solid #8B5CF6;
         }
-        
         .badge-modern {
           display: inline-flex;
           align-items: center;
@@ -649,34 +614,52 @@ export default function AutoExtractor() {
           border-radius: 10px;
           font-size: 12px;
           font-weight: 600;
-          letter-spacing: 0.3px;
         }
-        
         .badge-success {
           background: linear-gradient(135deg, #10B981 0%, #059669 100%);
           color: white;
           box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
         }
-        
         .badge-warning {
           background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
           color: white;
           box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
         }
-        
+        .filter-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 16px;
+          background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+          color: white;
+          border-radius: 20px;
+          font-size: 13px;
+          font-weight: 600;
+          box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+        .filter-chip button {
+          background: rgba(255, 255, 255, 0.2);
+          border: none;
+          border-radius: 50%;
+          width: 20px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .filter-chip button:hover { background: rgba(255, 255, 255, 0.3); }
+        .spinning { animation: spin 1s linear infinite; }
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
-        
-        .spinning {
-          animation: spin 1s linear infinite;
+        @keyframes gradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
         }
-        
-        .progress-ring {
-          transform: rotate(-90deg);
-        }
-        
         .step-number {
           width: 40px;
           height: 40px;
@@ -690,56 +673,48 @@ export default function AutoExtractor() {
           font-size: 18px;
           box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
         }
-
-        @keyframes gradient {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-
-        .result-card {
+        .field-selector-dropdown {
+          position: absolute;
+          top: 100%;
+          right: 0;
+          margin-top: 8px;
           background: white;
-          border-radius: 16px;
-          padding: 20px;
-          border: 2px solid #F1F5F9;
-          transition: all 0.3s ease;
+          border: 2px solid #E2E8F0;
+          border-radius: 12px;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+          padding: 16px;
+          z-index: 1000;
+          min-width: 300px;
+          max-height: 400px;
+          overflow-y: auto;
         }
-
-        .result-card:hover {
-          border-color: #8B5CF6;
-          box-shadow: 0 8px 24px rgba(139, 92, 246, 0.15);
-          transform: translateY(-2px);
+        .field-checkbox {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 12px;
+          border-radius: 8px;
+          transition: all 0.2s ease;
+          cursor: pointer;
+        }
+        .field-checkbox:hover {
+          background: #F5F3FF;
+        }
+        .field-checkbox input[type="checkbox"] {
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+          accent-color: #8B5CF6;
         }
       `}</style>
 
-
-
-      {/* Main Content Area */}
       <AnimatePresence mode="wait">
         {!activeJob ? (
-          // Configuration & Records View
-          <motion.div
-            key="config"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.3 }}
-          >
-            {/* Configuration Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass-card"
-              style={{ padding: '40px', marginBottom: '32px' }}
-            >
-              {/* Step 1: Source Config */}
+          <motion.div key="config" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="glass-card" style={{ padding: '40px', marginBottom: '32px' }}>
+              {/* Step 1: Configure Source */}
               <div style={{ marginBottom: '40px' }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '16px',
-                  marginBottom: '24px'
-                }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
                   <div className="step-number">1</div>
                   <div>
                     <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#1E293B' }}>
@@ -753,13 +728,9 @@ export default function AutoExtractor() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 240px', gap: '20px' }}>
                   <div>
-                    <label style={{
-                      display: 'block',
-                      marginBottom: '10px',
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: '#475569'
-                    }}>App Link Name</label>
+                    <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>
+                      App Link Name
+                    </label>
                     <input
                       type="text"
                       className="input-modern"
@@ -770,13 +741,9 @@ export default function AutoExtractor() {
                   </div>
 
                   <div>
-                    <label style={{
-                      display: 'block',
-                      marginBottom: '10px',
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: '#475569'
-                    }}>Report Link Name</label>
+                    <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>
+                      Report Link Name
+                    </label>
                     <input
                       type="text"
                       className="input-modern"
@@ -787,23 +754,8 @@ export default function AutoExtractor() {
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                    <button
-                      className="btn-primary"
-                      onClick={fetchFields}
-                      disabled={isLoadingFields}
-                      style={{ width: '100%', justifyContent: 'center' }}
-                    >
-                      {isLoadingFields ? (
-                        <>
-                          <Loader2 size={18} className="spinning" />
-                          Loading...
-                        </>
-                      ) : (
-                        <>
-                          <List size={18} />
-                          Fetch Fields
-                        </>
-                      )}
+                    <button className="btn-primary" onClick={fetchFields} disabled={isLoadingFields} style={{ width: '100%', justifyContent: 'center' }}>
+                      {isLoadingFields ? <><Loader2 size={18} className="spinning" /> Loading...</> : <><List size={18} /> Fetch Fields</>}
                     </button>
                   </div>
                 </div>
@@ -817,213 +769,56 @@ export default function AutoExtractor() {
                       padding: '16px 20px',
                       background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
                       borderRadius: '12px',
-                      fontSize: '14px',
                       color: 'white',
                       fontWeight: 600,
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '12px',
-                      boxShadow: '0 8px 20px rgba(16, 185, 129, 0.3)'
+                      gap: '12px'
                     }}
                   >
                     <CheckCircle2 size={20} />
                     Loaded {availableFields.all_fields.length} fields
-                    ({availableFields.file_fields.length} images, {availableFields.text_fields.length} text)
                   </motion.div>
                 )}
               </div>
 
-              {/* Step 2: Field Selection */}
+              {/* Step 2: Select Extract Fields */}
               {availableFields.all_fields.length > 0 && (
                 <div style={{ marginBottom: '40px' }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    marginBottom: '24px'
-                  }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
                     <div className="step-number">2</div>
                     <div>
                       <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#1E293B' }}>
                         Select Extract Fields
                       </h3>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748B' }}>
-                        Choose which image fields to process
-                      </p>
                     </div>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                     <div>
-                      <label style={{
-                        display: 'block',
-                        marginBottom: '10px',
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        color: '#475569'
-                      }}>Bank Passbook Field</label>
-                      <select
-                        className="select-modern"
-                        value={config.bank_field_name}
-                        onChange={(e) => setConfig({ ...config, bank_field_name: e.target.value })}
-                      >
+                      <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>
+                        Bank Passbook Field
+                      </label>
+                      <select className="select-modern" value={config.bank_field_name} onChange={(e) => setConfig({ ...config, bank_field_name: e.target.value })}>
                         <option value="">-- None --</option>
-                        {availableFields.all_fields.map(field => (
-                          <option key={field} value={field}>{field}</option>
-                        ))}
+                        {availableFields.all_fields.map(field => <option key={field} value={field}>{field}</option>)}
                       </select>
                     </div>
 
                     <div>
-                      <label style={{
-                        display: 'block',
-                        marginBottom: '10px',
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        color: '#475569'
-                      }}>Bill/Receipt Field (Optional)</label>
-                      <select
-                        className="select-modern"
-                        value={config.bill_field_name}
-                        onChange={(e) => setConfig({ ...config, bill_field_name: e.target.value })}
-                      >
+                      <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>
+                        Bill/Receipt Field
+                      </label>
+                      <select className="select-modern" value={config.bill_field_name} onChange={(e) => setConfig({ ...config, bill_field_name: e.target.value })}>
                         <option value="">-- None --</option>
-                        {availableFields.all_fields.map(field => (
-                          <option key={field} value={field}>{field}</option>
-                        ))}
+                        {availableFields.all_fields.map(field => <option key={field} value={field}>{field}</option>)}
                       </select>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Step 3: Filters */}
-              {availableFields.text_fields.length > 0 && (
-                <div style={{ marginBottom: '40px' }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: '24px'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      <div className="step-number">3</div>
-                      <div>
-                        <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#1E293B' }}>
-                          Add Filters (Optional)
-                        </h3>
-                        <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748B' }}>
-                          Filter records before processing
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      className="btn-secondary"
-                      onClick={addFilter}
-                    >
-                      <Plus size={16} />
-                      Add Filter
-                    </button>
-                  </div>
-
-                  {filters.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      {filters.map((filter) => (
-                        <motion.div
-                          key={filter.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 20 }}
-                          style={{
-                            background: '#F8FAFC',
-                            borderRadius: '16px',
-                            padding: '20px',
-                            display: 'grid',
-                            gridTemplateColumns: '1fr 180px 1fr 50px',
-                            gap: '16px',
-                            alignItems: 'center',
-                            border: '2px solid #E2E8F0',
-                            transition: 'all 0.3s ease'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = '#8B5CF6'
-                            e.currentTarget.style.background = 'white'
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = '#E2E8F0'
-                            e.currentTarget.style.background = '#F8FAFC'
-                          }}
-                        >
-                          <select
-                            className="select-modern"
-                            value={filter.field}
-                            onChange={(e) => updateFilter(filter.id, 'field', e.target.value)}
-                          >
-                            {availableFields.text_fields.map(field => (
-                              <option key={field} value={field}>{field}</option>
-                            ))}
-                          </select>
-
-                          <select
-                            className="select-modern"
-                            value={filter.operator}
-                            onChange={(e) => updateFilter(filter.id, 'operator', e.target.value)}
-                          >
-                            <option value="==">equals</option>
-                            <option value="!=">not equals</option>
-                            <option value="contains">contains</option>
-                            <option value=">">greater than</option>
-                            <option value="<">less than</option>
-                            <option value="is_null">is empty</option>
-                            <option value="is_not_null">is not empty</option>
-                          </select>
-
-                          {!['is_null', 'is_not_null'].includes(filter.operator) && (
-                            <input
-                              type="text"
-                              className="input-modern"
-                              value={filter.value}
-                              onChange={(e) => updateFilter(filter.id, 'value', e.target.value)}
-                              placeholder="Enter value..."
-                            />
-                          )}
-
-                          <button
-                            onClick={() => removeFilter(filter.id)}
-                            style={{
-                              background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '10px',
-                              width: '44px',
-                              height: '44px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: 'pointer',
-                              transition: 'all 0.3s ease',
-                              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
-                            }}
-                            onMouseOver={(e) => {
-                              e.currentTarget.style.transform = 'translateY(-2px)'
-                              e.currentTarget.style.boxShadow = '0 8px 20px rgba(239, 68, 68, 0.4)'
-                            }}
-                            onMouseOut={(e) => {
-                              e.currentTarget.style.transform = 'none'
-                              e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)'
-                            }}
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Load Records */}
+              {/* Load Records Button */}
               <div style={{
                 display: 'flex',
                 gap: '16px',
@@ -1035,11 +830,9 @@ export default function AutoExtractor() {
               }}>
                 <Database size={32} color="#8B5CF6" />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#1E293B', marginBottom: '4px' }}>
-                    Ready to load records
-                  </div>
-                  <div style={{ fontSize: '13px', color: '#64748B' }}>
-                    Click to fetch metadata only - processing happens in real-time
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>Ready to load records</div>
+                  <div style={{ fontSize: '13px', color: '#64748B', marginTop: '4px' }}>
+                    ✅ Fetches ALL records (no server-side filters)
                   </div>
                 </div>
                 <button
@@ -1048,182 +841,326 @@ export default function AutoExtractor() {
                   disabled={isLoadingRecords || (!config.bank_field_name && !config.bill_field_name)}
                   style={{ fontSize: '16px', padding: '16px 32px' }}
                 >
-                  {isLoadingRecords ? (
-                    <>
-                      <Loader2 size={20} className="spinning" />
-                      Loading...
-                    </>
-                  ) : (
-                    <>
-                      <Zap size={20} />
-                      Load Records
-                    </>
-                  )}
+                  {isLoadingRecords ? <><Loader2 size={20} className="spinning" /> Loading...</> : <><Zap size={20} /> Load All Records</>}
                 </button>
               </div>
             </motion.div>
 
             {/* Records Table */}
-            {records.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                {/* Stats Cards */}
+            {allRecords.length > 0 && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                {/* ✅ NEW: Client-Side Filter Banner */}
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{
+                    marginBottom: '20px',
+                    padding: '20px 24px',
+                    background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+                    borderRadius: '12px',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px'
+                  }}
+                >
+                  <Sparkles size={24} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '4px' }}>
+                      ✅ Client-Side Filtering Active
+                    </div>
+                    <div style={{ fontSize: '14px', opacity: 0.9 }}>
+                      All {allRecords.length} records loaded • Filters apply instantly in browser
+                      {(filters.length > 0 || searchQuery) && ` • Showing ${filteredRecords.length} filtered`}
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Stats */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '24px' }}>
                   <div className="stat-card">
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                      <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
-                        TOTAL RECORDS
-                      </div>
-                      <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
-                        {filteredRecords.length}
-                      </div>
-                    </div>
+                    <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px' }}>LOADED RECORDS</div>
+                    <div style={{ fontSize: '40px', fontWeight: 800 }}>{allRecords.length}</div>
                   </div>
-
                   <div className="stat-card">
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                      <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
-                        SELECTED
-                      </div>
-                      <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
-                        {selectedRecords.size}
-                      </div>
-                    </div>
+                    <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px' }}>AFTER FILTER</div>
+                    <div style={{ fontSize: '40px', fontWeight: 800 }}>{filteredRecords.length}</div>
                   </div>
-
                   <div className="stat-card">
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                      <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
-                        EST. TIME
-                      </div>
-                      <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
-                        {Math.ceil(selectedRecords.size * 3 / 60)}m
-                      </div>
-                    </div>
+                    <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px' }}>SELECTED</div>
+                    <div style={{ fontSize: '40px', fontWeight: 800 }}>{selectedRecords.size}</div>
                   </div>
-
                   <div className="stat-card">
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                      <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
-                        EST. COST
-                      </div>
-                      <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
-                        ${(selectedRecords.size * 0.003).toFixed(2)}
-                      </div>
-                    </div>
+                    <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px' }}>EST. COST</div>
+                    <div style={{ fontSize: '40px', fontWeight: 800 }}>${(selectedRecords.size * 0.003).toFixed(2)}</div>
                   </div>
                 </div>
 
                 {/* Toolbar */}
-                <div className="glass-card" style={{
-                  padding: '20px',
-                  marginBottom: '20px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: '20px',
-                  flexWrap: 'wrap'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '300px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, maxWidth: '400px' }}>
+                <div className="glass-card" style={{ padding: '20px', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <Search size={20} color="#8B5CF6" />
-                      <input
-                        type="text"
-                        className="input-modern"
-                        placeholder="Search by student name..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                      <input 
+                        type="text" 
+                        className="input-modern" 
+                        placeholder="Search all fields..." 
+                        value={searchQuery} 
+                        onChange={(e) => setSearchQuery(e.target.value)} 
                       />
                     </div>
-
-                    {/* Quick Selection Buttons */}
-                    <div style={{
-                      display: 'flex',
-                      gap: '8px',
-                      borderLeft: '2px solid #E2E8F0',
-                      paddingLeft: '16px',
-                      marginLeft: '8px'
-                    }}>
-                      <button
-                        className="btn-secondary"
-                        onClick={() => setSelectedRecords(new Set(filteredRecords.slice(0, 50).map(r => r.record_id)))}
-                        style={{ padding: '8px 12px', fontSize: '12px', fontWeight: 600 }}
-                        title="Select first 50 records"
+                    
+                    {/* ✅ NEW: Field Selector Button */}
+                    <div style={{ position: 'relative' }}>
+                      <button 
+                        className="btn-secondary" 
+                        onClick={() => setShowFieldSelector(!showFieldSelector)}
+                        style={{ padding: '14px 24px' }}
                       >
-                        First 50
+                        <Columns size={18} /> 
+                        Columns ({visibleFields.size})
                       </button>
-                      <button
-                        className="btn-secondary"
-                        onClick={() => setSelectedRecords(new Set(filteredRecords.slice(0, 100).map(r => r.record_id)))}
-                        style={{ padding: '8px 12px', fontSize: '12px', fontWeight: 600 }}
-                        title="Select first 100 records"
-                      >
-                        First 100
-                      </button>
-                      <button
-                        className="btn-secondary"
-                        onClick={() => setSelectedRecords(new Set(filteredRecords.slice(0, 200).map(r => r.record_id)))}
-                        style={{ padding: '8px 12px', fontSize: '12px', fontWeight: 600 }}
-                        title="Select first 200 records"
-                      >
-                        First 200
-                      </button>
-                      <button
-                        className="btn-secondary"
-                        onClick={() => setSelectedRecords(new Set())}
-                        style={{
-                          padding: '8px 12px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          borderColor: '#EF4444',
-                          color: '#EF4444'
-                        }}
-                        title="Clear selection"
-                      >
-                        <XCircle size={14} />
-                        Clear
-                      </button>
+                      
+                      {showFieldSelector && (
+                        <div className="field-selector-dropdown">
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '2px solid #E2E8F0' }}>
+                            <span style={{ fontSize: '14px', fontWeight: 700, color: '#1E293B' }}>
+                              Select Columns
+                            </span>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button 
+                                onClick={showAllFields}
+                                style={{ 
+                                  padding: '6px 12px', 
+                                  fontSize: '12px', 
+                                  background: '#8B5CF6', 
+                                  color: 'white', 
+                                  border: 'none', 
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                  fontWeight: 600
+                                }}
+                              >
+                                All
+                              </button>
+                              <button 
+                                onClick={showDefaultFields}
+                                style={{ 
+                                  padding: '6px 12px', 
+                                  fontSize: '12px', 
+                                  background: '#F1F5F9', 
+                                  color: '#475569', 
+                                  border: 'none', 
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                  fontWeight: 600
+                                }}
+                              >
+                                Reset
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {displayableFields.map(field => (
+                              <label key={field} className="field-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={visibleFields.has(field)}
+                                  onChange={() => toggleFieldVisibility(field)}
+                                />
+                                <span style={{ fontSize: '14px', color: '#1E293B', fontWeight: 500 }}>
+                                  {field}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
+
+                    <button className="btn-primary" onClick={startExtraction} disabled={selectedRecords.size === 0}>
+                      <Play size={20} /> Process {selectedRecords.size}
+                    </button>
                   </div>
 
-                  <button
-                    className="btn-primary"
-                    onClick={startExtraction}
-                    disabled={selectedRecords.size === 0}
-                    style={{ fontSize: '16px', padding: '14px 32px' }}
-                  >
-                    <Play size={20} />
-                    Process {selectedRecords.size} Selected
-                  </button>
+                  {/* ✅ NEW: Filters Section */}
+                  <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: '12px', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <Filter size={18} color="#8B5CF6" />
+                        <span style={{ fontSize: '15px', fontWeight: 700, color: '#1E293B' }}>
+                          Client-Side Filters
+                        </span>
+                        {filters.length > 0 && (
+                          <span style={{ 
+                            padding: '4px 12px', 
+                            background: '#8B5CF6', 
+                            color: 'white', 
+                            borderRadius: '12px', 
+                            fontSize: '12px', 
+                            fontWeight: 700 
+                          }}>
+                            {filters.length} active
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {filters.length > 0 && (
+                          <button className="btn-secondary" onClick={clearAllFilters} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                            <X size={14} /> Clear
+                          </button>
+                        )}
+                        <button className="btn-primary" onClick={addFilter} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                          <Plus size={14} /> Add Filter
+                        </button>
+                      </div>
+                    </div>
+
+                    {filters.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {filters.map((filter) => (
+                          <div key={filter.id} style={{
+                            background: 'white',
+                            borderRadius: '12px',
+                            padding: '16px',
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 160px 1fr 44px',
+                            gap: '12px',
+                            border: '2px solid #E2E8F0'
+                          }}>
+                            <select 
+                              className="select-modern" 
+                              value={filter.field} 
+                              onChange={(e) => updateFilter(filter.id, 'field', e.target.value)}
+                              style={{ padding: '10px 14px' }}
+                            >
+                              {displayableFields.map(field => (
+                                <option key={field} value={field}>{field}</option>
+                              ))}
+                            </select>
+
+                            <select 
+                              className="select-modern" 
+                              value={filter.operator} 
+                              onChange={(e) => updateFilter(filter.id, 'operator', e.target.value)}
+                              style={{ padding: '10px 14px' }}
+                            >
+                              <option value="==">equals</option>
+                              <option value="!=">not equals</option>
+                              <option value="contains">contains</option>
+                              <option value="not_contains">not contains</option>
+                              <option value=">">greater than</option>
+                              <option value="<">less than</option>
+                              <option value=">=">≥</option>
+                              <option value="<=">≤</option>
+                              <option value="is_null">is empty</option>
+                              <option value="is_not_null">is not empty</option>
+                            </select>
+
+                            {!['is_null', 'is_not_null'].includes(filter.operator) && (
+                              <input
+                                type="text"
+                                className="input-modern"
+                                value={filter.value}
+                                onChange={(e) => updateFilter(filter.id, 'value', e.target.value)}
+                                placeholder="Enter value..."
+                                style={{ padding: '10px 14px' }}
+                              />
+                            )}
+
+                            <button
+                              onClick={() => removeFilter(filter.id)}
+                              style={{
+                                background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '10px',
+                                width: '44px',
+                                height: '44px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Selection Actions */}
+                  <div style={{ display: 'flex', gap: '12px', padding: '16px', background: '#F8FAFC', borderRadius: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '12px' }}>
+                      <MousePointerClick size={18} color="#8B5CF6" />
+                      <span style={{ fontSize: '14px', fontWeight: 600, color: '#475569' }}>Quick Select:</span>
+                    </div>
+
+                    <button className="btn-secondary" onClick={selectFiltered} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                      <Layers size={14} /> Filtered ({filteredRecords.length})
+                    </button>
+                    <button className="btn-secondary" onClick={selectAll} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                      <CheckSquare size={14} /> All ({allRecords.length})
+                    </button>
+                    <button className="btn-secondary" onClick={() => selectRange(50)} style={{ padding: '8px 16px', fontSize: '13px' }}>First 50</button>
+                    <button className="btn-secondary" onClick={() => selectRange(100)} style={{ padding: '8px 16px', fontSize: '13px' }}>First 100</button>
+                    <button className="btn-secondary" onClick={() => selectRange(200)} style={{ padding: '8px 16px', fontSize: '13px' }}>First 200</button>
+
+                    <div style={{ width: '2px', height: '32px', background: '#E2E8F0', margin: '0 8px' }} />
+
+                    <button className="btn-secondary" onClick={() => selectByCondition('has_both')} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                      <CheckCircle2 size={14} /> Both Images
+                    </button>
+                    <button className="btn-secondary" onClick={() => selectByCondition('has_bank')} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                      <FileImage size={14} /> Bank Only
+                    </button>
+                    <button className="btn-secondary" onClick={() => selectByCondition('missing_bank')} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                      <MinusCircle size={14} /> Missing Bank
+                    </button>
+
+                    <div style={{ width: '2px', height: '32px', background: '#E2E8F0', margin: '0 8px' }} />
+
+                    <button className="btn-secondary" onClick={selectNone} style={{ padding: '8px 16px', fontSize: '13px', borderColor: '#EF4444', color: '#EF4444' }}>
+                      <Square size={14} /> Clear
+                    </button>
+
+                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>Per page:</span>
+                      <select className="select-modern" value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1) }} style={{ width: '100px', padding: '8px 12px' }}>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                        <option value={200}>200</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Selection Info Banner */}
-                {selectedRecords.size > 0 && selectedRecords.size > paginatedRecords.length && (
+                {/* Selection Info */}
+                {selectedRecords.size > 0 && (
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     style={{
                       marginBottom: '16px',
-                      padding: '16px 20px',
+                      padding: '16px 24px',
                       background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
                       borderRadius: '12px',
                       color: 'white',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '12px',
-                      boxShadow: '0 8px 20px rgba(59, 130, 246, 0.3)'
+                      gap: '12px'
                     }}
                   >
-                    <AlertCircle size={20} />
+                    <Sparkles size={20} />
                     <div style={{ flex: 1 }}>
-                      <strong>{selectedRecords.size} records selected</strong> across all pages
-                      {selectedRecords.size === filteredRecords.length && (
-                        <span style={{ marginLeft: '8px', opacity: 0.9 }}>
-                          (All records selected)
-                        </span>
-                      )}
+                      <strong style={{ fontSize: '16px' }}>{selectedRecords.size} records selected</strong>
+                      <div style={{ fontSize: '13px', marginTop: '4px', opacity: 0.9 }}>
+                        Est. Time: {Math.ceil(selectedRecords.size * 3 / 60)}m • Est. Cost: ${(selectedRecords.size * 0.003).toFixed(2)}
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -1234,77 +1171,69 @@ export default function AutoExtractor() {
                     <table className="table-modern">
                       <thead>
                         <tr>
-                          <th style={{ width: '80px', textAlign: 'center' }}>
+                          <th style={{ width: '60px', textAlign: 'center' }}>
                             <input
                               type="checkbox"
-                              checked={selectedRecords.size > 0}
-                              onClick={toggleSelectAll}
-                              readOnly
-                              style={{
-                                width: '20px',
-                                height: '20px',
-                                cursor: 'pointer',
-                                accentColor: '#8B5CF6'
+                              checked={selectedRecords.size === filteredRecords.length && filteredRecords.length > 0}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  selectFiltered()
+                                } else {
+                                  selectNone()
+                                }
                               }}
+                              style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: '#8B5CF6' }}
                             />
                           </th>
-                          <th>Student Name</th>
-                          <th style={{ width: '200px' }}>Record ID</th>
-                          <th style={{ textAlign: 'center', width: '150px' }}>Bank Image</th>
-                          <th style={{ textAlign: 'center', width: '150px' }}>Bill Image</th>
+                          {Array.from(visibleFields).map(field => (
+                            <th key={field} onClick={() => handleSort(field)}>
+                              {field.replace(/_/g, ' ')} {sortConfig.key === field && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
                         {paginatedRecords.map(record => (
-                          <tr
-                            key={record.record_id}
-                            className={selectedRecords.has(record.record_id) ? 'selected' : ''}
-                            onClick={() => toggleSelectRecord(record.record_id)}
-                            style={{ cursor: 'pointer' }}
+                          <tr 
+                            key={record.record_id} 
+                            className={selectedRecords.has(record.record_id) ? 'selected' : ''} 
+                            onClick={() => toggleRecord(record.record_id)}
                           >
                             <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="checkbox"
-                                checked={selectedRecords.has(record.record_id)}
-                                onChange={() => toggleSelectRecord(record.record_id)}
-                                style={{
-                                  width: '20px',
-                                  height: '20px',
-                                  cursor: 'pointer',
-                                  accentColor: '#8B5CF6'
-                                }}
+                              <input 
+                                type="checkbox" 
+                                checked={selectedRecords.has(record.record_id)} 
+                                onChange={() => toggleRecord(record.record_id)} 
+                                style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: '#8B5CF6' }} 
                               />
                             </td>
-                            <td style={{ fontWeight: 600, fontSize: '15px' }}>{record.student_name}</td>
-                            <td style={{ fontFamily: 'monospace', fontSize: '13px', color: '#64748B' }}>
-                              {record.record_id}
-                            </td>
-                            <td style={{ textAlign: 'center' }}>
-                              {record.has_bank_image ? (
-                                <span className="badge-modern badge-success">
-                                  <CheckCircle2 size={14} />
-                                  Available
-                                </span>
-                              ) : (
-                                <span className="badge-modern badge-warning">
-                                  <XCircle size={14} />
-                                  Missing
-                                </span>
-                              )}
-                            </td>
-                            <td style={{ textAlign: 'center' }}>
-                              {record.has_bill_image ? (
-                                <span className="badge-modern badge-success">
-                                  <CheckCircle2 size={14} />
-                                  Available
-                                </span>
-                              ) : (
-                                <span className="badge-modern badge-warning">
-                                  <XCircle size={14} />
-                                  Missing
-                                </span>
-                              )}
-                            </td>
+                            {Array.from(visibleFields).map(field => {
+                              const value = record[field]
+                              
+                              // Special rendering for boolean fields
+                              if (typeof value === 'boolean') {
+                                return (
+                                  <td key={field} style={{ textAlign: 'center' }}>
+                                    {value ? (
+                                      <span className="badge-modern badge-success">
+                                        <CheckCircle2 size={14} /> Yes
+                                      </span>
+                                    ) : (
+                                      <span className="badge-modern badge-warning">
+                                        <XCircle size={14} /> No
+                                      </span>
+                                    )}
+                                  </td>
+                                )
+                              }
+                              
+                              // Regular text rendering
+                              return (
+                                <td key={field}>
+                                  {String(value || '')}
+                                </td>
+                              )
+                            })}
                           </tr>
                         ))}
                       </tbody>
@@ -1312,33 +1241,18 @@ export default function AutoExtractor() {
                   </div>
 
                   {/* Pagination */}
-                  <div style={{
-                    padding: '20px',
-                    borderTop: '2px solid #F1F5F9',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <button
-                      className="btn-secondary"
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      <ChevronLeft size={16} />
-                      Previous
+                  <div style={{ padding: '20px', borderTop: '2px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <button className="btn-secondary" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                      <ChevronLeft size={16} /> Previous
                     </button>
-
-                    <span style={{ fontWeight: 700, fontSize: '15px', color: '#475569' }}>
-                      Page {currentPage} of {totalPages}
-                    </span>
-
-                    <button
-                      className="btn-secondary"
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                      <ChevronRight size={16} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <span style={{ fontSize: '14px', color: '#64748B' }}>
+                        Showing {startIndex + 1}-{Math.min(endIndex, filteredRecords.length)} of {filteredRecords.length}
+                      </span>
+                      <span style={{ fontWeight: 700, color: '#475569' }}>Page {currentPage} of {totalPages}</span>
+                    </div>
+                    <button className="btn-secondary" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                      Next <ChevronRight size={16} />
                     </button>
                   </div>
                 </div>
@@ -1346,91 +1260,42 @@ export default function AutoExtractor() {
             )}
           </motion.div>
         ) : (
-          // Processing Monitor View
-          <motion.div
-            key="processing"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="glass-card"
-              style={{ padding: '48px' }}
-            >
-              {/* Header with Back Button */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '32px'
-              }}>
+          <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <div className="glass-card" style={{ padding: '48px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '32px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                   <Activity size={32} color="#8B5CF6" />
                   <div>
-                    <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#1E293B' }}>
-                      Processing Job
-                    </h2>
-                    <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748B', fontFamily: 'monospace' }}>
-                      {activeJob}
-                    </p>
+                    <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800 }}>Processing Job</h2>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748B', fontFamily: 'monospace' }}>{activeJob}</p>
                   </div>
                 </div>
-
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                   <span style={{
                     padding: '12px 24px',
                     borderRadius: '12px',
-                    background: jobStatus?.status === 'running'
-                      ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)'
-                      : jobStatus?.status === 'completed'
-                        ? 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)'
-                        : 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
+                    background: jobStatus?.status === 'running' ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)' : 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
                     color: 'white',
                     fontSize: '14px',
                     fontWeight: 700,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
-                    letterSpacing: '0.5px',
-                    textTransform: 'uppercase',
-                    boxShadow: jobStatus?.status === 'running'
-                      ? '0 8px 20px rgba(16, 185, 129, 0.4)'
-                      : '0 8px 20px rgba(59, 130, 246, 0.4)'
+                    gap: '8px'
                   }}>
                     {jobStatus?.status === 'running' && <Loader2 size={16} className="spinning" />}
                     {jobStatus?.status || 'Loading'}
                   </span>
-
                   {jobStatus?.status === 'completed' && (
-                    <button
-                      className="btn-secondary"
-                      onClick={handleBackToMain}
-                      style={{ gap: '8px' }}
-                    >
-                      <ArrowLeft size={18} />
-                      Back to Main
-                    </button>
+                    <button className="btn-secondary" onClick={handleBackToMain}><ArrowLeft size={18} /> Back</button>
                   )}
                 </div>
               </div>
 
-              {/* Progress Bar */}
-              <div style={{
-                background: '#F1F5F9',
-                height: '48px',
-                borderRadius: '24px',
-                overflow: 'hidden',
-                marginBottom: '32px',
-                position: 'relative',
-                boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.1)'
-              }}>
+              {/* Progress */}
+              <div style={{ background: '#F1F5F9', height: '48px', borderRadius: '24px', overflow: 'hidden', marginBottom: '32px' }}>
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${jobStatus?.progress?.progress_percent || 0}%` }}
-                  transition={{ duration: 0.5, ease: 'easeOut' }}
                   style={{
                     background: 'linear-gradient(90deg, #8B5CF6, #EC4899, #8B5CF6)',
                     backgroundSize: '200% 100%',
@@ -1441,15 +1306,14 @@ export default function AutoExtractor() {
                     justifyContent: 'center',
                     color: 'white',
                     fontWeight: 800,
-                    fontSize: '18px',
-                    letterSpacing: '1px'
+                    fontSize: '18px'
                   }}
                 >
                   {(jobStatus?.progress?.progress_percent || 0).toFixed(1)}%
                 </motion.div>
               </div>
 
-              {/* Stats Grid */}
+              {/* Stats */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '20px', marginBottom: '32px' }}>
                 {[
                   { label: 'Total', value: jobStatus?.progress?.total_records || 0, color: '#8B5CF6', icon: Database },
@@ -1459,302 +1323,68 @@ export default function AutoExtractor() {
                   { label: 'Speed', value: processingSpeed > 0 ? `${processingSpeed.toFixed(1)}/min` : '—', color: '#F59E0B', icon: TrendingUp },
                   { label: 'ETA', value: estimatedTimeRemaining ? `${Math.ceil(estimatedTimeRemaining)}m` : '—', color: '#EC4899', icon: Clock }
                 ].map((stat, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    style={{
-                      background: 'white',
-                      padding: '24px',
-                      borderRadius: '16px',
-                      textAlign: 'center',
-                      border: '2px solid #F1F5F9',
-                      transition: 'all 0.3s ease'
-                    }}
-                    whileHover={{
-                      borderColor: stat.color,
-                      transform: 'translateY(-4px)',
-                      boxShadow: `0 12px 24px ${stat.color}20`
-                    }}
-                  >
+                  <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} style={{ background: 'white', padding: '24px', borderRadius: '16px', textAlign: 'center', border: '2px solid #F1F5F9' }}>
                     <stat.icon size={24} color={stat.color} style={{ marginBottom: '8px' }} />
-                    <div style={{
-                      fontSize: '36px',
-                      fontWeight: 800,
-                      color: stat.color,
-                      lineHeight: 1,
-                      marginBottom: '8px'
-                    }}>
-                      {stat.value}
-                    </div>
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#64748B',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px'
-                    }}>
-                      {stat.label}
-                    </div>
+                    <div style={{ fontSize: '36px', fontWeight: 800, color: stat.color }}>{stat.value}</div>
+                    <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{stat.label}</div>
                   </motion.div>
                 ))}
               </div>
 
-              {/* Cost Banner */}
-              <div style={{
-                background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                padding: '24px 32px',
-                borderRadius: '16px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                boxShadow: '0 12px 32px rgba(16, 185, 129, 0.3)',
-                marginBottom: '32px'
-              }}>
+              {/* Cost */}
+              <div style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)', padding: '24px 32px', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', marginBottom: '32px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <DollarSign size={28} color="white" />
-                  <span style={{ fontSize: '18px', fontWeight: 600, color: 'white' }}>
-                    Total Processing Cost
-                  </span>
+                  <span style={{ fontSize: '18px', fontWeight: 600, color: 'white' }}>Total Cost</span>
                 </div>
-                <span style={{ fontSize: '36px', fontWeight: 800, color: 'white' }}>
-                  ${(jobStatus?.cost?.total_cost_usd || 0).toFixed(4)}
-                </span>
+                <span style={{ fontSize: '36px', fontWeight: 800, color: 'white' }}>${(jobStatus?.cost?.total_cost_usd || 0).toFixed(4)}</span>
               </div>
 
-              {/* Recent Results Preview */}
+              {/* Results */}
               {jobResults.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  style={{ marginBottom: '32px' }}
-                >
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: '16px'
-                  }}>
-                    <h3 style={{
-                      margin: 0,
-                      fontSize: '20px',
-                      fontWeight: 700,
-                      color: '#1E293B',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px'
-                    }}>
-                      <BarChart3 size={24} color="#8B5CF6" />
-                      Recent Extractions
-                    </h3>
-                    <span style={{
-                      fontSize: '14px',
-                      color: '#64748B',
-                      fontWeight: 600
-                    }}>
-                      Showing last {jobResults.length} results
-                    </span>
-                  </div>
-
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2, 1fr)',
-                    gap: '16px'
-                  }}>
-                    {/* Recent Results Preview - Update the result cards */}
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <BarChart3 size={24} color="#8B5CF6" /> Recent Extractions
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
                     {jobResults.slice(0, 6).map((result, idx) => (
-                      <motion.div
-                        key={result.id || idx}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: idx * 0.05 }}
-                        className="result-card"
-                      >
-                        <div style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'flex-start',
-                          marginBottom: '12px'
-                        }}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{
-                              fontSize: '16px',
-                              fontWeight: 700,
-                              color: '#1E293B',
-                              marginBottom: '4px'
-                            }}>
-                              {result.student_name || 'Unknown Student'}
-                            </div>
-                            <div style={{
-                              fontSize: '12px',
-                              color: '#64748B',
-                              fontFamily: 'monospace',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: '2px'
-                            }}>
-                              <div>Record ID: {result.record_id}</div>
-                              {result.scholar_id && (
-                                <div style={{ color: '#8B5CF6', fontWeight: 600 }}>
-                                  Scholar ID: {result.scholar_id}
-                                </div>
-                              )}
-                              {result.Tracking_id && (
-                                <div style={{ color: '#10B981', fontWeight: 600 }}>
-                                  Tracking ID: {result.Tracking_id}
-                                </div>
-                              )}
-                            </div>
+                      <div key={idx} style={{ background: 'white', borderRadius: '16px', padding: '20px', border: '2px solid #F1F5F9' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                          <div>
+                            <div style={{ fontSize: '16px', fontWeight: 700 }}>{result.student_name || 'Unknown'}</div>
+                            <div style={{ fontSize: '12px', color: '#64748B', fontFamily: 'monospace' }}>{result.record_id}</div>
                           </div>
                           <span style={{
                             padding: '6px 12px',
                             borderRadius: '8px',
                             fontSize: '11px',
                             fontWeight: 700,
-                            textTransform: 'uppercase',
-                            background: result.status === 'success'
-                              ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)'
-                              : 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
-                            color: 'white',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            {result.status}
-                          </span>
+                            background: result.status === 'success' ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)' : 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
+                            color: 'white'
+                          }}>{result.status}</span>
                         </div>
-
-                        <div style={{
-                          display: 'flex',
-                          gap: '12px',
-                          paddingTop: '12px',
-                          borderTop: '1px solid #F1F5F9',
-                          flexWrap: 'wrap'
-                        }}>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontSize: '13px',
-                            color: '#64748B'
-                          }}>
-                            <ImageIcon size={14} />
-                            {result.bank_image_supabase ? '✓ Bank' : '✗ Bank'}
-                          </div>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontSize: '13px',
-                            color: '#64748B'
-                          }}>
-                            <FileText size={14} />
-                            {result.bill_image_supabase?.length > 0
-                              ? `✓ ${result.bill_image_supabase.length} Bill${result.bill_image_supabase.length > 1 ? 's' : ''}`
-                              : '✗ Bill'}
-                          </div>
-                          <div style={{
-                            marginLeft: 'auto',
-                            fontSize: '13px',
-                            fontWeight: 600,
-                            color: '#8B5CF6'
-                          }}>
-                            ${(result.cost_usd || 0).toFixed(4)}
-                          </div>
+                        <div style={{ display: 'flex', gap: '12px', fontSize: '13px', color: '#64748B' }}>
+                          <span>{result.bank_image_supabase ? '✓' : '✗'} Bank</span>
+                          <span>{result.bill_image_supabase?.length > 0 ? `✓ ${result.bill_image_supabase.length} Bill(s)` : '✗ Bill'}</span>
+                          <span style={{ marginLeft: 'auto', color: '#8B5CF6', fontWeight: 600 }}>${(result.cost_usd || 0).toFixed(4)}</span>
                         </div>
-                      </motion.div>
+                      </div>
                     ))}
                   </div>
                 </motion.div>
               )}
 
-              {/* Completion Actions */}
               {jobStatus?.status === 'completed' && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '16px'
-                  }}
-                >
-                  <button
-                    className="btn-secondary"
-                    onClick={handleBackToMain}
-                    style={{
-                      fontSize: '16px',
-                      padding: '18px',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <ArrowLeft size={20} />
-                    Back to Records
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '32px' }}>
+                  <button className="btn-secondary" onClick={handleBackToMain} style={{ padding: '18px', justifyContent: 'center' }}>
+                    <ArrowLeft size={20} /> Back
                   </button>
-
-                  <button
-                    className="btn-primary"
-                    onClick={() => {
-                      // Reset everything and start fresh
-                      setActiveJob(null)
-                      setJobStatus(null)
-                      setIsPolling(false)
-                      setJobResults([])
-                      setRecords([])
-                      setSelectedRecords(new Set())
-                      setFilters([])
-                      setSearchQuery('')
-                    }}
-                    style={{
-                      fontSize: '16px',
-                      padding: '18px',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <RefreshCw size={20} />
-                    Start New Extraction
+                  <button className="btn-primary" onClick={() => { setActiveJob(null); setJobStatus(null); setRecords([]); setSelectedRecords(new Set()) }} style={{ padding: '18px', justifyContent: 'center' }}>
+                    <RefreshCw size={20} /> New Extraction
                   </button>
-                </motion.div>
+                </div>
               )}
-
-              {/* Failed State Actions */}
-              {jobStatus?.status === 'failed' && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  style={{
-                    background: 'linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%)',
-                    padding: '24px',
-                    borderRadius: '16px',
-                    marginBottom: '16px'
-                  }}
-                >
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    marginBottom: '12px'
-                  }}>
-                    <AlertCircle size={24} color="#DC2626" />
-                    <h4 style={{
-                      margin: 0,
-                      fontSize: '18px',
-                      fontWeight: 700,
-                      color: '#DC2626'
-                    }}>
-                      Job Failed
-                    </h4>
-                  </div>
-                  <p style={{
-                    margin: 0,
-                    fontSize: '14px',
-                    color: '#991B1B',
-                    lineHeight: 1.6
-                  }}>
-                    The extraction job encountered an error. You can try again or contact support if the issue persists.
-                  </p>
-                </motion.div>
-              )}
-            </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

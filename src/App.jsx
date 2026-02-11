@@ -8,6 +8,8 @@ import AutoExtractor from './components/AutoExtractor'
 import ExtractedData from './components/ExtractedData'
 import EnhancedCostDashboard from './components/CostDashboard'
 import ProtectedRoute from './components/ProtectedRoute'
+import BarcodeExtractor from './components/BarcodeExtractor'
+import BarcodeResults from './components/BarcodeResults'
 
 function App() {
   return (
@@ -33,6 +35,8 @@ function App() {
             <Route path="auto-extract" element={<AutoExtractor />} />
             <Route path="extracted-data" element={<ExtractedData />} />
             <Route path="cost" element={<EnhancedCostDashboard />} />
+            <Route path="bar" element={<BarcodeExtractor />} />
+            <Route path="/barcode-results" element={<BarcodeResults />} />
             
             {/* Catch all - redirect to auto-extract */}
             <Route path="*" element={<Navigate to="/auto-extract" replace />} />
