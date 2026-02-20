@@ -12,8 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Folder,
-  Image as ImageIcon,
-  Zap,
+  Image,
   AlertCircle,
   TrendingUp,
   Clock,
@@ -25,16 +24,28 @@ import {
   Download,
   Database,
   Copy,
-  ExternalLink
+  Upload,
+  Cloud,
+  HardDrive
 } from 'lucide-react'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export default function BarcodeExtractor() {
+  // Mode selection: 'workdrive' or 'local'
+  const [extractionMode, setExtractionMode] = useState('workdrive')
+
+  // Workdrive state
   const [config, setConfig] = useState({
     folder_id: 'gzrjifb529f116bf44f1e94b6d005a6bf0e71'
   })
 
+  // Local files state
+  const [localFiles, setLocalFiles] = useState([])
+  const [dragActive, setDragActive] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+
+  // Common state
   const [isLoadingFiles, setIsLoadingFiles] = useState(false)
   const [files, setFiles] = useState([])
   const [selectedFiles, setSelectedFiles] = useState(new Set())
@@ -73,43 +84,111 @@ export default function BarcodeExtractor() {
     }
   }, [jobStatus, processingSpeed])
 
-  // Update loadFiles function
-const loadFiles = async () => {
-  if (!config.folder_id) {
-    toast.error('Please enter Folder ID')
-    return
+  // Workdrive file loading
+  const loadFiles = async () => {
+    if (!config.folder_id) {
+      toast.error('Please enter Folder ID')
+      return
+    }
+
+    setIsLoadingFiles(true)
+    try {
+      const formData = new FormData()
+      formData.append('folder_id', config.folder_id)
+
+      const response = await fetch(`${API_BASE_URL}/barcode/workdrive/list-files`, {
+        method: 'POST',
+        body: formData
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setFiles(data.files || [])
+        setSelectedFiles(new Set())
+        setCurrentPage(1)
+
+        toast.success(`✅ Loaded ${data.total_files} files`, {
+          icon: '📁',
+          style: { borderRadius: '12px', background: '#8B5CF6', color: 'white' }
+        })
+      } else {
+        toast.error(`Error: ${data.error}`)
+      }
+    } catch (error) {
+      toast.error(`Failed to load files: ${error.message}`)
+    } finally {
+      setIsLoadingFiles(false)
+    }
   }
 
-  setIsLoadingFiles(true)
-  try {
-    const formData = new FormData()
-    formData.append('folder_id', config.folder_id)
+  // Local file handling
+  const handleDrag = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true)
+    } else if (e.type === "dragleave") {
+      setDragActive(false)
+    }
+  }
 
-    const response = await fetch(`${API_BASE_URL}/barcode/workdrive/list-files`, {
-      method: 'POST',
-      body: formData
-    })
+  const handleDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
 
-    const data = await response.json()
+    const droppedFiles = e.dataTransfer.files
+    handleLocalFiles(droppedFiles)
+  }
 
-    if (data.success) {
-      setFiles(data.files || [])
-      setSelectedFiles(new Set())
-      setCurrentPage(1)
+  const handleFileInput = (e) => {
+    const selectedFileList = e.target.files
+    handleLocalFiles(selectedFileList)
+  }
 
-      toast.success(`✅ Loaded ${data.total_files} files`, {
+  const handleLocalFiles = (fileList) => {
+    const newFiles = []
+    
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i]
+      const isImage = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'].includes(file.type)
+      
+      if (!isImage) {
+        toast.error(`❌ ${file.name} is not a supported file type`)
+        continue
+      }
+
+      newFiles.push({
+        file_id: `local_${Date.now()}_${Math.random()}`,
+        filename: file.name,
+        size: file.size,
+        extension: file.name.split('.').pop().toLowerCase(),
+        file: file,
+        local: true
+      })
+    }
+
+    setLocalFiles([...localFiles, ...newFiles])
+    setFiles([...files, ...newFiles])
+    
+    if (newFiles.length > 0) {
+      toast.success(`✅ Added ${newFiles.length} file(s)`, {
         icon: '📁',
         style: { borderRadius: '12px', background: '#8B5CF6', color: 'white' }
       })
-    } else {
-      toast.error(`Error: ${data.error}`)
     }
-  } catch (error) {
-    toast.error(`Failed to load files: ${error.message}`)
-  } finally {
-    setIsLoadingFiles(false)
   }
-}
+
+  const removeLocalFile = (fileId) => {
+    setLocalFiles(localFiles.filter(f => f.file_id !== fileId))
+    setFiles(files.filter(f => f.file_id !== fileId))
+    setSelectedFiles(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(fileId)
+      return newSet
+    })
+  }
 
   const startExtraction = async () => {
     if (selectedFiles.size === 0) {
@@ -118,30 +197,63 @@ const loadFiles = async () => {
     }
 
     try {
-      const formData = new FormData()
-      formData.append('folder_id', config.folder_id)
-      formData.append('selected_file_ids', JSON.stringify([...selectedFiles]))
-
-      const response = await fetch(`${API_BASE_URL}/barcode/workdrive/start`, {
-        method: 'POST',
-        body: formData
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setActiveJob(data.job_id)
-        setIsPolling(true)
-        setLastProcessedCount(0)
-        setLastUpdateTime(Date.now())
-        setProcessingSpeed(0)
-        setJobResults([])
-        toast.success(`🚀 Processing started!`, {
-          duration: 5000,
-          style: { borderRadius: '12px', background: '#8B5CF6', color: 'white' }
+      if (extractionMode === 'local') {
+        // Handle local file extraction
+        const selectedLocalFiles = localFiles.filter(f => selectedFiles.has(f.file_id))
+        
+        const formData = new FormData()
+        selectedLocalFiles.forEach(f => {
+          formData.append('files', f.file)
         })
+
+        const response = await fetch(`${API_BASE_URL}/barcode/local/start`, {
+          method: 'POST',
+          body: formData
+        })
+
+        const data = await response.json()
+
+        if (data.success) {
+          setActiveJob(data.job_id)
+          setIsPolling(true)
+          setLastProcessedCount(0)
+          setLastUpdateTime(Date.now())
+          setProcessingSpeed(0)
+          setJobResults([])
+          toast.success(`🚀 Processing started!`, {
+            duration: 5000,
+            style: { borderRadius: '12px', background: '#8B5CF6', color: 'white' }
+          })
+        } else {
+          toast.error(`Error: ${data.error}`)
+        }
       } else {
-        toast.error(`Error: ${data.error}`)
+        // Handle Workdrive extraction
+        const formData = new FormData()
+        formData.append('folder_id', config.folder_id)
+        formData.append('selected_file_ids', JSON.stringify([...selectedFiles]))
+
+        const response = await fetch(`${API_BASE_URL}/barcode/workdrive/start`, {
+          method: 'POST',
+          body: formData
+        })
+
+        const data = await response.json()
+
+        if (data.success) {
+          setActiveJob(data.job_id)
+          setIsPolling(true)
+          setLastProcessedCount(0)
+          setLastUpdateTime(Date.now())
+          setProcessingSpeed(0)
+          setJobResults([])
+          toast.success(`🚀 Processing started!`, {
+            duration: 5000,
+            style: { borderRadius: '12px', background: '#8B5CF6', color: 'white' }
+          })
+        } else {
+          toast.error(`Error: ${data.error}`)
+        }
       }
     } catch (error) {
       toast.error(`Failed to start: ${error.message}`)
@@ -205,7 +317,10 @@ const loadFiles = async () => {
     setJobStatus(null)
     setIsPolling(false)
     setJobResults([])
-    loadFiles()
+    
+    if (extractionMode === 'workdrive') {
+      loadFiles()
+    }
   }
 
   const toggleSelectAll = () => {
@@ -235,7 +350,6 @@ const loadFiles = async () => {
   }
 
   const downloadResults = () => {
-    // Convert results to CSV
     const headers = ['Filename', 'Barcode Type', 'Barcode Data', 'Status', 'Cost (USD)']
     const rows = jobResults.map(r => [
       r.filename || '',
@@ -393,6 +507,26 @@ const loadFiles = async () => {
         .btn-secondary:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+
+        .btn-danger {
+          background: #FEE2E2;
+          color: #DC2626;
+          border: 2px solid #FECACA;
+          padding: 8px 16px;
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 0.2s ease;
+        }
+
+        .btn-danger:hover {
+          background: #FCA5A5;
+          border-color: #DC2626;
         }
         
         .stat-card {
@@ -591,6 +725,124 @@ const loadFiles = async () => {
           color: #8B5CF6;
           transform: scale(1.1);
         }
+
+        .mode-tabs {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 24px;
+          border-bottom: 2px solid #F1F5F9;
+        }
+
+        .mode-tab {
+          padding: 14px 24px;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          font-weight: 600;
+          font-size: 15px;
+          color: #64748B;
+          transition: all 0.3s ease;
+          border-bottom: 3px solid transparent;
+          margin-bottom: -2px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .mode-tab.active {
+          color: #8B5CF6;
+          border-bottom-color: #8B5CF6;
+        }
+
+        .mode-tab:hover {
+          color: #8B5CF6;
+        }
+
+        .drag-zone {
+          border: 2px dashed #8B5CF6;
+          border-radius: 16px;
+          padding: 40px;
+          text-align: center;
+          transition: all 0.3s ease;
+          background: rgba(139, 92, 246, 0.02);
+          cursor: pointer;
+        }
+
+        .drag-zone.active {
+          background: rgba(139, 92, 246, 0.1);
+          border-color: #7C3AED;
+        }
+
+        .file-list {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 16px;
+          margin-top: 20px;
+        }
+
+        .file-item {
+          background: white;
+          border: 2px solid #E2E8F0;
+          border-radius: 12px;
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          transition: all 0.3s ease;
+          position: relative;
+        }
+
+        .file-item.selected {
+          border-color: #8B5CF6;
+          background: #F5F3FF;
+        }
+
+        .file-item:hover {
+          border-color: #8B5CF6;
+          box-shadow: 0 8px 16px rgba(139, 92, 246, 0.15);
+        }
+
+        .file-checkbox {
+          position: absolute;
+          top: 12px;
+          right: 12px;
+          width: 20px;
+          height: 20px;
+          cursor: pointer;
+          accent-color: #8B5CF6;
+        }
+
+        .file-info {
+          padding-right: 32px;
+        }
+
+        .file-name {
+          font-weight: 600;
+          color: #1E293B;
+          word-break: break-word;
+          font-size: 14px;
+        }
+
+        .file-size {
+          font-size: 12px;
+          color: #64748B;
+        }
+
+        .file-remove {
+          background: #FEE2E2;
+          color: #DC2626;
+          border: none;
+          padding: 6px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .file-remove:hover {
+          background: #FECACA;
+        }
       `}</style>
 
       <AnimatePresence mode="wait">
@@ -602,14 +854,13 @@ const loadFiles = async () => {
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.3 }}
           >
-            {/* Configuration Card */}
+            {/* Header */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="glass-card"
               style={{ padding: '40px', marginBottom: '32px' }}
             >
-              {/* Header */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -622,250 +873,461 @@ const loadFiles = async () => {
                     Barcode Extractor
                   </h2>
                   <p style={{ margin: '4px 0 0 0', fontSize: '16px', color: '#64748B' }}>
-                    Extract barcodes from Workdrive images using AI
+                    Extract barcodes from images using AI
                   </p>
                 </div>
               </div>
 
-              {/* Step 1: Workdrive Config */}
-              <div style={{ marginBottom: '40px' }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '16px',
-                  marginBottom: '24px'
-                }}>
-                  <div className="step-number">1</div>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#1E293B' }}>
-                      Connect to Workdrive
-                    </h3>
-                    <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748B' }}>
-                      Enter your Workdrive team and folder details
-                    </p>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: '20px' }}>
-  <div>
-    <label style={{
-      display: 'block',
-      marginBottom: '10px',
-      fontSize: '14px',
-      fontWeight: 600,
-      color: '#475569'
-    }}>Folder ID *</label>
-    <input
-      type="text"
-      className="input-modern"
-      value={config.folder_id}
-      onChange={(e) => setConfig({ ...config, folder_id: e.target.value })}
-      placeholder="Enter Workdrive folder ID"
-    />
-  </div>
-
-  <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-    <button
-      className="btn-primary"
-      onClick={loadFiles}
-      disabled={isLoadingFiles || !config.folder_id}
-      style={{ width: '100%', justifyContent: 'center' }}
-    >
-      {isLoadingFiles ? (
-        <>
-          <Loader2 size={18} className="spinning" />
-          Loading...
-        </>
-      ) : (
-        <>
-          <Folder size={18} />
-          Load Files
-        </>
-      )}
-    </button>
-  </div>
-</div>
+              {/* Mode Selection Tabs */}
+              <div className="mode-tabs">
+                <button
+                  className={`mode-tab ${extractionMode === 'workdrive' ? 'active' : ''}`}
+                  onClick={() => {
+                    setExtractionMode('workdrive')
+                    setSelectedFiles(new Set())
+                    setSearchQuery('')
+                  }}
+                >
+                  <Cloud size={18} />
+                  Workdrive
+                </button>
+                <button
+                  className={`mode-tab ${extractionMode === 'local' ? 'active' : ''}`}
+                  onClick={() => {
+                    setExtractionMode('local')
+                    setSelectedFiles(new Set())
+                    setSearchQuery('')
+                  }}
+                >
+                  <HardDrive size={18} />
+                  Local Files
+                </button>
               </div>
             </motion.div>
 
-            {/* Files Table */}
-            {files.length > 0 && (
+            {/* Workdrive Mode */}
+            {extractionMode === 'workdrive' && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                {/* Stats Cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '24px' }}>
-                  <div className="stat-card">
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                      <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
-                        TOTAL FILES
-                      </div>
-                      <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
-                        {filteredFiles.length}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="stat-card">
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                      <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
-                        SELECTED
-                      </div>
-                      <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
-                        {selectedFiles.size}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="stat-card">
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                      <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
-                        EST. TIME
-                      </div>
-                      <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
-                        {Math.ceil(selectedFiles.size * 2 / 60)}m
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="stat-card">
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                      <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
-                        EST. COST
-                      </div>
-                      <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
-                        ${(selectedFiles.size * 0.002).toFixed(2)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Toolbar */}
-                <div className="glass-card" style={{
-                  padding: '20px',
-                  marginBottom: '20px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                    <Search size={20} color="#8B5CF6" />
-                    <input
-                      type="text"
-                      className="input-modern"
-                      placeholder="Search files..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      style={{ maxWidth: '400px' }}
-                    />
-                  </div>
-
-                  <button
-                    className="btn-primary"
-                    onClick={startExtraction}
-                    disabled={selectedFiles.size === 0}
-                    style={{ fontSize: '16px', padding: '14px 32px' }}
-                  >
-                    <Play size={20} />
-                    Process {selectedFiles.size} Files
-                  </button>
-                </div>
-
-                {/* Table */}
-                <div className="glass-card" style={{ overflow: 'hidden' }}>
-                  <div style={{ maxHeight: '600px', overflow: 'auto' }}>
-                    <table className="table-modern">
-                      <thead>
-                        <tr>
-                          <th style={{ width: '80px', textAlign: 'center' }}>
-                            <input
-                              type="checkbox"
-                              checked={selectedFiles.size > 0 && selectedFiles.size === files.length}
-                              onChange={toggleSelectAll}
-                              style={{
-                                width: '20px',
-                                height: '20px',
-                                cursor: 'pointer',
-                                accentColor: '#8B5CF6'
-                              }}
-                            />
-                          </th>
-                          <th>Filename</th>
-                          <th style={{ width: '150px' }}>Type</th>
-                          <th style={{ width: '150px', textAlign: 'right' }}>Size</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {paginatedFiles.map(file => (
-                          <tr
-                            key={file.file_id}
-                            className={selectedFiles.has(file.file_id) ? 'selected' : ''}
-                            onClick={() => toggleSelectFile(file.file_id)}
-                            style={{ cursor: 'pointer' }}
-                          >
-                            <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="checkbox"
-                                checked={selectedFiles.has(file.file_id)}
-                                onChange={() => toggleSelectFile(file.file_id)}
-                                style={{
-                                  width: '20px',
-                                  height: '20px',
-                                  cursor: 'pointer',
-                                  accentColor: '#8B5CF6'
-                                }}
-                              />
-                            </td>
-                            <td style={{ fontWeight: 600, fontSize: '15px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <ImageIcon size={18} color="#8B5CF6" />
-                                {file.filename}
-                              </div>
-                            </td>
-                            <td style={{ fontFamily: 'monospace', fontSize: '13px', color: '#64748B', textTransform: 'uppercase' }}>
-                              {file.extension}
-                            </td>
-                            <td style={{ textAlign: 'right', fontSize: '14px', color: '#64748B' }}>
-                              {(file.size / 1024).toFixed(1)} KB
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Pagination */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="glass-card"
+                  style={{ padding: '40px', marginBottom: '32px' }}
+                >
                   <div style={{
-                    padding: '20px',
-                    borderTop: '2px solid #F1F5F9',
                     display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    gap: '16px',
+                    marginBottom: '24px'
                   }}>
-                    <button
-                      className="btn-secondary"
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      <ChevronLeft size={16} />
-                      Previous
-                    </button>
-
-                    <span style={{ fontWeight: 700, fontSize: '15px', color: '#475569' }}>
-                      Page {currentPage} of {totalPages}
-                    </span>
-
-                    <button
-                      className="btn-secondary"
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                      <ChevronRight size={16} />
-                    </button>
+                    <div className="step-number">1</div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#1E293B' }}>
+                        Connect to Workdrive
+                      </h3>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748B' }}>
+                        Enter your Workdrive folder ID
+                      </p>
+                    </div>
                   </div>
-                </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: '20px' }}>
+                    <div>
+                      <label style={{
+                        display: 'block',
+                        marginBottom: '10px',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        color: '#475569'
+                      }}>Folder ID *</label>
+                      <input
+                        type="text"
+                        className="input-modern"
+                        value={config.folder_id}
+                        onChange={(e) => setConfig({ ...config, folder_id: e.target.value })}
+                        placeholder="Enter Workdrive folder ID"
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                      <button
+                        className="btn-primary"
+                        onClick={loadFiles}
+                        disabled={isLoadingFiles || !config.folder_id}
+                        style={{ width: '100%', justifyContent: 'center' }}
+                      >
+                        {isLoadingFiles ? (
+                          <>
+                            <Loader2 size={18} className="spinning" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            <Folder size={18} />
+                            Load Files
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Workdrive Files Table */}
+                {files.length > 0 && extractionMode === 'workdrive' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    {/* Stats Cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '24px' }}>
+                      <div className="stat-card">
+                        <div style={{ position: 'relative', zIndex: 1 }}>
+                          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
+                            TOTAL FILES
+                          </div>
+                          <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
+                            {filteredFiles.length}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="stat-card">
+                        <div style={{ position: 'relative', zIndex: 1 }}>
+                          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
+                            SELECTED
+                          </div>
+                          <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
+                            {selectedFiles.size}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="stat-card">
+                        <div style={{ position: 'relative', zIndex: 1 }}>
+                          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
+                            EST. TIME
+                          </div>
+                          <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
+                            {Math.ceil(selectedFiles.size * 2 / 60)}m
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="stat-card">
+                        <div style={{ position: 'relative', zIndex: 1 }}>
+                          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
+                            EST. COST
+                          </div>
+                          <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
+                            ${(selectedFiles.size * 0.002).toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Toolbar */}
+                    <div className="glass-card" style={{
+                      padding: '20px',
+                      marginBottom: '20px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                        <Search size={20} color="#8B5CF6" />
+                        <input
+                          type="text"
+                          className="input-modern"
+                          placeholder="Search files..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          style={{ maxWidth: '400px' }}
+                        />
+                      </div>
+
+                      <button
+                        className="btn-primary"
+                        onClick={startExtraction}
+                        disabled={selectedFiles.size === 0}
+                        style={{ fontSize: '16px', padding: '14px 32px' }}
+                      >
+                        <Play size={20} />
+                        Process {selectedFiles.size} Files
+                      </button>
+                    </div>
+
+                    {/* Table */}
+                    <div className="glass-card" style={{ overflow: 'hidden' }}>
+                      <div style={{ maxHeight: '600px', overflow: 'auto' }}>
+                        <table className="table-modern">
+                          <thead>
+                            <tr>
+                              <th style={{ width: '80px', textAlign: 'center' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedFiles.size > 0 && selectedFiles.size === filteredFiles.length}
+                                  onChange={toggleSelectAll}
+                                  style={{
+                                    width: '20px',
+                                    height: '20px',
+                                    cursor: 'pointer',
+                                    accentColor: '#8B5CF6'
+                                  }}
+                                />
+                              </th>
+                              <th>Filename</th>
+                              <th style={{ width: '150px' }}>Type</th>
+                              <th style={{ width: '150px', textAlign: 'right' }}>Size</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {paginatedFiles.map(file => (
+                              <tr
+                                key={file.file_id}
+                                className={selectedFiles.has(file.file_id) ? 'selected' : ''}
+                                onClick={() => toggleSelectFile(file.file_id)}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedFiles.has(file.file_id)}
+                                    onChange={() => toggleSelectFile(file.file_id)}
+                                    style={{
+                                      width: '20px',
+                                      height: '20px',
+                                      cursor: 'pointer',
+                                      accentColor: '#8B5CF6'
+                                    }}
+                                  />
+                                </td>
+                                <td style={{ fontWeight: 600, fontSize: '15px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <Image size={18} color="#8B5CF6" />
+                                    {file.filename}
+                                  </div>
+                                </td>
+                                <td style={{ fontFamily: 'monospace', fontSize: '13px', color: '#64748B', textTransform: 'uppercase' }}>
+                                  {file.extension}
+                                </td>
+                                <td style={{ textAlign: 'right', fontSize: '14px', color: '#64748B' }}>
+                                  {(file.size / 1024).toFixed(1)} KB
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Pagination */}
+                      <div style={{
+                        padding: '20px',
+                        borderTop: '2px solid #F1F5F9',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <button
+                          className="btn-secondary"
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronLeft size={16} />
+                          Previous
+                        </button>
+
+                        <span style={{ fontWeight: 700, fontSize: '15px', color: '#475569' }}>
+                          Page {currentPage} of {totalPages}
+                        </span>
+
+                        <button
+                          className="btn-secondary"
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          Next
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+
+            {/* Local Files Mode */}
+            {extractionMode === 'local' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="glass-card"
+                  style={{ padding: '40px', marginBottom: '32px' }}
+                >
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px',
+                    marginBottom: '24px'
+                  }}>
+                    <div className="step-number">1</div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#1E293B' }}>
+                        Upload Local Files
+                      </h3>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748B' }}>
+                        Drag & drop or click to upload images
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Drag and Drop Zone */}
+                  <div
+                    className={`drag-zone ${dragActive ? 'active' : ''}`}
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    onClick={() => document.getElementById('file-input').click()}
+                  >
+                    <input
+                      id="file-input"
+                      type="file"
+                      multiple
+                      accept="image/*,.pdf"
+                      onChange={handleFileInput}
+                      style={{ display: 'none' }}
+                    />
+                    <Upload size={40} color="#8B5CF6" style={{ margin: '0 auto 16px' }} />
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: '#1E293B', marginBottom: '8px' }}>
+                      {dragActive ? 'Drop files here' : 'Drag files here or click to browse'}
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#64748B' }}>
+                      Supported formats: JPG, PNG, GIF, WebP, PDF
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Local Files Grid */}
+                {localFiles.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    {/* Stats Cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '24px' }}>
+                      <div className="stat-card">
+                        <div style={{ position: 'relative', zIndex: 1 }}>
+                          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
+                            TOTAL FILES
+                          </div>
+                          <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
+                            {localFiles.length}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="stat-card">
+                        <div style={{ position: 'relative', zIndex: 1 }}>
+                          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
+                            SELECTED
+                          </div>
+                          <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
+                            {selectedFiles.size}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="stat-card">
+                        <div style={{ position: 'relative', zIndex: 1 }}>
+                          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
+                            EST. TIME
+                          </div>
+                          <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
+                            {Math.ceil(selectedFiles.size * 2 / 60)}m
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="stat-card">
+                        <div style={{ position: 'relative', zIndex: 1 }}>
+                          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px', letterSpacing: '0.5px' }}>
+                            EST. COST
+                          </div>
+                          <div style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1 }}>
+                            ${(selectedFiles.size * 0.002).toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Files Grid */}
+                    <div className="file-list">
+                      {localFiles.map(file => (
+                        <div
+                          key={file.file_id}
+                          className={`file-item ${selectedFiles.has(file.file_id) ? 'selected' : ''}`}
+                          onClick={() => toggleSelectFile(file.file_id)}
+                        >
+                          <input
+                            type="checkbox"
+                            className="file-checkbox"
+                            checked={selectedFiles.has(file.file_id)}
+                            onChange={() => toggleSelectFile(file.file_id)}
+                          />
+                          <div className="file-info">
+                            <Image size={24} color="#8B5CF6" style={{ marginBottom: '8px' }} />
+                            <div className="file-name">{file.filename}</div>
+                            <div className="file-size">{(file.size / 1024).toFixed(1)} KB</div>
+                          </div>
+                          <button
+                            className="file-remove"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removeLocalFile(file.file_id)
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div style={{
+                      display: 'flex',
+                      gap: '12px',
+                      marginTop: '24px',
+                      justifyContent: 'flex-end'
+                    }}>
+                      <button
+                        className="btn-secondary"
+                        onClick={() => {
+                          setLocalFiles([])
+                          setFiles([])
+                          setSelectedFiles(new Set())
+                        }}
+                      >
+                        Clear All
+                      </button>
+                      <button
+                        className="btn-primary"
+                        onClick={startExtraction}
+                        disabled={selectedFiles.size === 0}
+                        style={{ fontSize: '16px', padding: '14px 32px' }}
+                      >
+                        <Play size={20} />
+                        Process {selectedFiles.size} Files
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
               </motion.div>
             )}
           </motion.div>
@@ -1122,7 +1584,7 @@ const loadFiles = async () => {
                               alignItems: 'center',
                               gap: '8px'
                             }}>
-                              <ImageIcon size={16} color="#8B5CF6" />
+                              <Image size={16} color="#8B5CF6" />
                               {result.filename || 'Unknown File'}
                             </div>
                             <div style={{
@@ -1149,88 +1611,85 @@ const loadFiles = async () => {
                         </div>
 
                         {result.status === 'success' && result.barcode_data ? (
-  <>
-    {/* Barcode Type Badge */}
-    {result.barcode_type && (
-      <div style={{ marginBottom: '10px' }}>
-        <span className="badge-modern badge-info">
-          <ScanBarcode size={12} />
-          {result.barcode_type}
-        </span>
-        {result.all_barcodes && result.all_barcodes.length > 1 && (
-          <span className="badge-modern badge-success" style={{ marginLeft: '8px' }}>
-            {result.all_barcodes.length} barcodes found
-          </span>
-        )}
-      </div>
-    )}
+                          <>
+                            {result.barcode_type && (
+                              <div style={{ marginBottom: '10px' }}>
+                                <span className="badge-modern badge-info">
+                                  <ScanBarcode size={12} />
+                                  {result.barcode_type}
+                                </span>
+                                {result.all_barcodes && result.all_barcodes.length > 1 && (
+                                  <span className="badge-modern badge-success" style={{ marginLeft: '8px' }}>
+                                    {result.all_barcodes.length} barcodes found
+                                  </span>
+                                )}
+                              </div>
+                            )}
 
-    {/* Primary Barcode Display */}
-    <div className="barcode-data-display">
-      <div style={{
-        flex: 1,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap'
-      }}>
-        {result.barcode_data}
-      </div>
-      <button
-        className="copy-button"
-        onClick={() => copyToClipboard(result.barcode_data)}
-        title="Copy barcode data"
-      >
-        <Copy size={16} />
-      </button>
-    </div>
+                            <div className="barcode-data-display">
+                              <div style={{
+                                flex: 1,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {result.barcode_data}
+                              </div>
+                              <button
+                                className="copy-button"
+                                onClick={() => copyToClipboard(result.barcode_data)}
+                                title="Copy barcode data"
+                              >
+                                <Copy size={16} />
+                              </button>
+                            </div>
 
-    {/* Show all barcodes if multiple */}
-    {result.all_barcodes && result.all_barcodes.length > 1 && (
-      <details style={{ marginTop: '12px' }}>
-        <summary style={{
-          cursor: 'pointer',
-          fontSize: '12px',
-          fontWeight: 600,
-          color: '#8B5CF6',
-          padding: '8px',
-          borderRadius: '6px',
-          background: '#F5F3FF'
-        }}>
-          View all {result.all_barcodes.length} barcodes
-        </summary>
-        <div style={{
-          marginTop: '8px',
-          maxHeight: '200px',
-          overflowY: 'auto',
-          padding: '8px',
-          background: '#FAFAFA',
-          borderRadius: '8px'
-        }}>
-          {result.all_barcodes.map((bc, idx) => (
-            <div key={idx} style={{
-              padding: '6px 8px',
-              fontSize: '11px',
-              fontFamily: 'monospace',
-              borderBottom: idx < result.all_barcodes.length - 1 ? '1px solid #E5E7EB' : 'none',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <span>{bc.data}</span>
-              <button
-                className="copy-button"
-                onClick={() => copyToClipboard(bc.data)}
-                style={{ padding: '4px' }}
-              >
-                <Copy size={12} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </details>
-    )}
-  </>
-) : (
+                            {result.all_barcodes && result.all_barcodes.length > 1 && (
+                              <details style={{ marginTop: '12px' }}>
+                                <summary style={{
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  color: '#8B5CF6',
+                                  padding: '8px',
+                                  borderRadius: '6px',
+                                  background: '#F5F3FF'
+                                }}>
+                                  View all {result.all_barcodes.length} barcodes
+                                </summary>
+                                <div style={{
+                                  marginTop: '8px',
+                                  maxHeight: '200px',
+                                  overflowY: 'auto',
+                                  padding: '8px',
+                                  background: '#FAFAFA',
+                                  borderRadius: '8px'
+                                }}>
+                                  {result.all_barcodes.map((bc, idx) => (
+                                    <div key={idx} style={{
+                                      padding: '6px 8px',
+                                      fontSize: '11px',
+                                      fontFamily: 'monospace',
+                                      borderBottom: idx < result.all_barcodes.length - 1 ? '1px solid #E5E7EB' : 'none',
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      alignItems: 'center'
+                                    }}>
+                                      <span>{bc.data}</span>
+                                      <button
+                                        className="copy-button"
+                                        onClick={() => copyToClipboard(bc.data)}
+                                        style={{ padding: '4px' }}
+                                      >
+                                        <Copy size={12} />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
+                            )}
+                          </>
+                        ) : (
                           <div style={{
                             padding: '12px',
                             background: '#FEF2F2',
@@ -1249,7 +1708,6 @@ const loadFiles = async () => {
                     ))}
                   </div>
 
-                  {/* Show More Button */}
                   {jobResults.length > 10 && (
                     <div style={{
                       marginTop: '16px',
@@ -1258,7 +1716,6 @@ const loadFiles = async () => {
                       <button
                         className="btn-secondary"
                         onClick={() => {
-                          // Could implement pagination or show all results
                           toast.success('Showing first 10 results. Export CSV for full data.')
                         }}
                       >
@@ -1297,15 +1754,15 @@ const loadFiles = async () => {
                   <button
                     className="btn-primary"
                     onClick={() => {
-                      // Reset everything and start fresh
                       setActiveJob(null)
                       setJobStatus(null)
                       setIsPolling(false)
                       setJobResults([])
+                      setLocalFiles([])
                       setFiles([])
                       setSelectedFiles(new Set())
                       setSearchQuery('')
-                      setConfig({ team_id: '', folder_id: '' })
+                      setConfig({ folder_id: '' })
                     }}
                     style={{
                       fontSize: '16px',
@@ -1319,7 +1776,6 @@ const loadFiles = async () => {
                 </motion.div>
               )}
 
-              {/* Failed State Actions */}
               {jobStatus?.status === 'failed' && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast, { Toaster } from 'react-hot-toast'
+import * as XLSX from 'xlsx'
 import {
   Database,
   RefreshCw,
@@ -98,41 +99,72 @@ export default function ExtractedData() {
   }, []) // Fetch all data once on mount
 
   const fetchExtractedData = async () => {
-    setIsLoading(true)
-    try {
-      // Fetch ALL records at once (no pagination in backend)
-      const { data, error, count } = await supabase
+  setIsLoading(true)
+  try {
+    let allRecords = []
+    let from = 0
+    const limit = 1000 // Supabase max per query
+    let hasMore = true
+
+    console.log('📊 Fetching all records with pagination...')
+
+    // Fetch in batches of 1000 until we get all records
+    while (hasMore) {
+      const { data, error } = await supabase
         .from('auto_extraction_results')
-        .select('*', { count: 'exact' })
+        .select('*')
         .order('id', { ascending: false })
+        .range(from, from + limit - 1)
 
       if (error) {
         throw error
       }
 
-      console.log('📊 Fetched data:', data?.length, 'records')
-      console.log('🔍 Push_status distribution:', {
-        pushed: data?.filter(r => r.Push_status === true).length,
-        notPushed: data?.filter(r => !r.Push_status || r.Push_status === false).length
-      })
-
-      setExtractedData(data || [])
-      setTotalRecords(count || 0)
-      setCurrentPage(1) // Reset to first page when fetching new data
-      toast.success(`✨ Loaded ${data?.length || 0} records`, {
-        style: {
-          background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
-          color: 'white',
-          fontWeight: 600
+      if (data && data.length > 0) {
+        allRecords = [...allRecords, ...data]
+        console.log(`📦 Batch ${Math.floor(from / limit) + 1}: Fetched ${data.length} records (Total: ${allRecords.length})`)
+        
+        // Check if there are more records
+        if (data.length < limit) {
+          hasMore = false
+        } else {
+          from += limit
         }
-      })
-    } catch (error) {
-      console.error('Error fetching data:', error)
-      toast.error('Failed to fetch extracted data: ' + error.message)
-    } finally {
-      setIsLoading(false)
+      } else {
+        hasMore = false
+      }
+
+      // Safety check to prevent infinite loops
+      if (allRecords.length > 50000) {
+        console.warn('⚠️ Reached 50k records limit, stopping pagination')
+        break
+      }
     }
+
+    console.log('✅ Total fetched:', allRecords.length, 'records')
+    console.log('🔍 Push_status distribution:', {
+      pushed: allRecords.filter(r => r.Push_status === true || r.Push_status === 'true' || r.Push_status === 'pushed').length,
+      notPushed: allRecords.filter(r => !r.Push_status || r.Push_status === false).length
+    })
+
+    setExtractedData(allRecords)
+    setTotalRecords(allRecords.length)
+    setCurrentPage(1)
+    
+    toast.success(`✨ Loaded ${allRecords.length.toLocaleString()} records`, {
+      style: {
+        background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+        color: 'white',
+        fontWeight: 600
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching data:', error)
+    toast.error('Failed to fetch extracted data: ' + error.message)
+  } finally {
+    setIsLoading(false)
   }
+}
 
   const parseJsonField = (field) => {
     if (!field) return null
@@ -398,57 +430,90 @@ const handleZohoPushSuccess = async (result) => {
   console.log('🧹 Cleared selections')
 }
 
-  const handleExport = () => {
-    const headers = [
-      'Record ID', 'Scholar Name', 'Scholar ID', 'Tracking ID', 'Account No', 'Bank Name',
-      'Holder Name', 'IFSC Code', 'Branch Name', 'Bill Data', 'Bill1_AMT',
-      'Bill2_AMT', 'Bill3_AMT', 'Bill4_AMT', 'Bill5_AMT'
-    ]
+  
+const handleExport = () => {
+  // Deduplicate by record_id
+  const seen = new Set()
+  const dedupedData = filteredData.filter(record => {
+    if (seen.has(record.record_id)) return false
+    seen.add(record.record_id)
+    return true
+  })
 
-    const csvRows = [headers.join(',')]
+  // Build rows as plain objects
+  const rows = dedupedData.map(record => {
+    const rawBillData = parseJsonField(record.bill_data)
+    const billDataArray = Array.isArray(rawBillData) ? rawBillData : (rawBillData ? [rawBillData] : [])
+    const bankData = parseJsonField(record.bank_data) || {}
 
-    filteredData.forEach(record => {
-      const rawBillData = parseJsonField(record.bill_data)
-      const billDataArray = Array.isArray(rawBillData) ? rawBillData : (rawBillData ? [rawBillData] : [])
-      const bankData = parseJsonField(record.bank_data) || {}
+    return {
+      'Record ID':    record.record_id || '',
+      'Scholar Name': billDataArray[0]?.student_name || '',
+      'Scholar ID':   billDataArray[0]?.scholar_id || record.scholar_id || '',
+      'Tracking ID':  record.Tracking_id || '',
+      'Email':        record.email || '',
+      'Account No':   bankData.account_number ? String(bankData.account_number) : '',
+      'Bank Name':    bankData.bank_name || '',
+      'Holder Name':  bankData.account_holder_name || '',
+      'IFSC Code':    bankData.ifsc_code || '',
+      'Branch Name':  bankData.branch_name || '',
+      'Bill Data':    formatBillDataText(billDataArray),
+      'Bill1_AMT':    billDataArray[0]?.amount || '',
+      'Bill2_AMT':    billDataArray[1]?.amount || '',
+      'Bill3_AMT':    billDataArray[2]?.amount || '',
+      'Bill4_AMT':    billDataArray[3]?.amount || '',
+      'Bill5_AMT':    billDataArray[4]?.amount || '',
+    }
+  })
 
-      const row = [
-        record.record_id || '',
-        (billDataArray[0]?.student_name || '').replace(/,/g, ';'),
-        billDataArray[0]?.scholar_id || record.scholar_id || '',
-        record.Tracking_id || '',
-        bankData.account_number || '',
-        (bankData.bank_name || '').replace(/,/g, ';'),
-        (bankData.account_holder_name || '').replace(/,/g, ';'),
-        bankData.ifsc_code || '',
-        (bankData.branch_name || '').replace(/,/g, ';'),
-        formatBillDataText(billDataArray).replace(/,/g, ';'),
-        billDataArray[0]?.amount || '',
-        billDataArray[1]?.amount || '',
-        billDataArray[2]?.amount || '',
-        billDataArray[3]?.amount || '',
-        billDataArray[4]?.amount || ''
-      ]
+  // Create worksheet from rows
+  const ws = XLSX.utils.json_to_sheet(rows)
 
-      csvRows.push(row.map(field => `"${field}"`).join(','))
-    })
+  // ✅ Force 'Account No' column to TEXT type for every row
+  // Column F = index 5 (Record ID=A, Scholar Name=B, Scholar ID=C, Tracking ID=D, Email=E, Account No=F)
+  const accountColLetter = 'F'
+  dedupedData.forEach((_, rowIdx) => {
+    const cellRef = `${accountColLetter}${rowIdx + 2}` // +2 because row 1 is header
+    if (ws[cellRef]) {
+      ws[cellRef].t = 's'  // force type = string
+      ws[cellRef].z = '@'  // format = text
+    }
+  })
 
-    const csvStr = csvRows.join('\n')
-    const dataBlob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(dataBlob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `extracted-data-${new Date().toISOString().split('T')[0]}.csv`
-    link.click()
-    URL.revokeObjectURL(url)
-    toast.success('📥 Data exported successfully!', {
-      style: {
-        background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
-        color: 'white',
-        fontWeight: 600
-      }
-    })
-  }
+  // Set column widths
+  ws['!cols'] = [
+    { wch: 12 }, // Record ID
+    { wch: 22 }, // Scholar Name
+    { wch: 15 }, // Scholar ID
+    { wch: 14 }, // Tracking ID
+    { wch: 28 }, // Email
+    { wch: 20 }, // Account No
+    { wch: 24 }, // Bank Name
+    { wch: 24 }, // Holder Name
+    { wch: 13 }, // IFSC Code
+    { wch: 20 }, // Branch Name
+    { wch: 50 }, // Bill Data
+    { wch: 10 }, // Bill1_AMT
+    { wch: 10 }, // Bill2_AMT
+    { wch: 10 }, // Bill3_AMT
+    { wch: 10 }, // Bill4_AMT
+    { wch: 10 }, // Bill5_AMT
+  ]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Extracted Data')
+
+  XLSX.writeFile(wb, `extracted-data-${new Date().toISOString().split('T')[0]}.xlsx`)
+
+  toast.success(`📥 Exported ${dedupedData.length} unique records!`, {
+    style: {
+      background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+      color: 'white',
+      fontWeight: 600
+    }
+  })
+}
+
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh', background: 'linear-gradient(to bottom, #faf9fb 0%, #ffffff 100%)' }}>

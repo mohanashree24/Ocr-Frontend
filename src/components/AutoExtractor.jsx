@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, List, Plus, Trash2, Database, Zap, AlertCircle,
   TrendingUp, Clock, DollarSign, Sparkles, Filter, ArrowLeft, FileText,
   FileImage, BarChart3, X, SlidersHorizontal, MinusCircle, CheckSquare,
-  Square, MousePointerClick, Layers, Eye, EyeOff, Columns
+  Square, MousePointerClick, Layers, Eye, EyeOff, Columns, Settings
 } from 'lucide-react'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -26,15 +26,19 @@ export default function AutoExtractor() {
     all_fields: []
   })
 
+  // ✅ NEW: Selected fields for loading
+  const [selectedFieldsForLoading, setSelectedFieldsForLoading] = useState(new Set())
+  const [showFieldSelector, setShowFieldSelector] = useState(false)
+  const [isLoadingFieldsList, setIsLoadingFieldsList] = useState(false)
+
   const [filters, setFilters] = useState([])
   const [allRecords, setAllRecords] = useState([])
   const [isLoadingRecords, setIsLoadingRecords] = useState(false)
   const [selectedRecords, setSelectedRecords] = useState(new Set())
   const [totalRecordsAvailable, setTotalRecordsAvailable] = useState(0)
 
-  // ✅ NEW: Field visibility management
   const [visibleFields, setVisibleFields] = useState(new Set(['student_name', 'record_id', 'has_bank_image', 'has_bill_image']))
-  const [showFieldSelector, setShowFieldSelector] = useState(false)
+  const [showFieldColumnSelector, setShowFieldColumnSelector] = useState(false)
 
   const [currentPage, setCurrentPage] = useState(1)
   const [recordsPerPage, setRecordsPerPage] = useState(50)
@@ -52,6 +56,110 @@ export default function AutoExtractor() {
   const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState(null)
 
   const [selectionMode, setSelectionMode] = useState('manual')
+  const [configuredFields, setConfiguredFields] = useState({
+    hasBankField: false,
+    hasBillField: false
+  })
+
+  // ✅ NEW: Fetch available fields list
+  const fetchAvailableFieldsList = async () => {
+    if (!config.app_link_name || !config.report_link_name) {
+      toast.error('Please enter App Link Name and Report Link Name first')
+      return
+    }
+
+    setIsLoadingFieldsList(true)
+    try {
+      const formData = new FormData()
+      formData.append('app_link_name', config.app_link_name)
+      formData.append('report_link_name', config.report_link_name)
+
+      const response = await fetch(`${API_BASE_URL}/ocr/auto-extract/fetch-fields`, {
+        method: 'POST',
+        body: formData
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setAvailableFields({
+          file_fields: data.file_fields || [],
+          text_fields: data.text_fields || [],
+          all_fields: data.all_fields || []
+        })
+        
+        // Auto-select basic fields
+        const defaultSelected = new Set(['student_name', 'record_id', 'Name', 'Student_Name', 'Scholar_Name', 'Scholar_ID', 'Tracking_ID'])
+        setSelectedFieldsForLoading(defaultSelected)
+        
+        toast.success(`✅ Loaded ${data.total_fields} fields available`, {
+          icon: '🎯',
+          style: { borderRadius: '12px', background: '#10B981', color: 'white' }
+        })
+      } else {
+        toast.error(`Error: ${data.error}`)
+      }
+    } catch (error) {
+      toast.error(`Failed to fetch fields: ${error.message}`)
+    } finally {
+      setIsLoadingFieldsList(false)
+    }
+  }
+
+  const flattenOCRData = (records, config) => {
+    if (records.length === 0) return records
+    
+    const flattenedRecords = records.map(record => {
+      const flattened = { ...record }
+      
+      if (config.bank_field_name && record[config.bank_field_name]) {
+        const bankData = record[config.bank_field_name]
+        if (typeof bankData === 'object') {
+          flattened.bank_account_number = bankData.account_number || bankData.accountNumber || ''
+          flattened.bank_ifsc = bankData.ifsc_code || bankData.ifscCode || bankData.ifsc || ''
+          flattened.bank_name = bankData.bank_name || bankData.bankName || ''
+          flattened.bank_holder_name = bankData.account_holder || bankData.accountHolder || ''
+          flattened.bank_confidence = bankData.confidence || ''
+        } else if (typeof bankData === 'string') {
+          flattened.bank_raw_text = bankData
+        }
+      }
+      
+      if (config.bill_field_name && record[config.bill_field_name]) {
+        const billData = record[config.bill_field_name]
+        if (typeof billData === 'object') {
+          flattened.bill_amount = billData.amount || billData.bill_amount || ''
+          flattened.bill_date = billData.date || billData.bill_date || ''
+          flattened.bill_provider = billData.provider || billData.provider_name || ''
+          flattened.bill_reference = billData.reference_number || billData.referenceNumber || ''
+          flattened.bill_confidence = billData.confidence || ''
+        } else if (typeof billData === 'string') {
+          flattened.bill_raw_text = billData
+        }
+      }
+      
+      return flattened
+    })
+    
+    return flattenedRecords
+  }
+
+  const getCategorizedFields = () => {
+    const categories = {
+      'Basic Info': ['student_name', 'record_id', 'email', 'phone', 'name']
+    }
+    
+    if (configuredFields.hasBankField) {
+      categories['Bank OCR'] = ['bank_account_number', 'bank_ifsc', 'bank_name', 'bank_holder_name', 'bank_confidence', 'bank_raw_text']
+    }
+    
+    if (configuredFields.hasBillField) {
+      categories['Bill OCR'] = ['bill_amount', 'bill_date', 'bill_provider', 'bill_reference', 'bill_confidence', 'bill_raw_text']
+    }
+    
+    categories['Image Flags'] = ['has_bank_image', 'has_bill_image']
+    
+    return categories
+  }
 
   useEffect(() => {
     let interval
@@ -106,55 +214,83 @@ export default function AutoExtractor() {
     }
   }
 
-  // ✅ UPDATED: Load ALL records without filters
+  // ✅ UPDATED: Load records with selected fields
   const loadRecords = async () => {
     setIsLoadingRecords(true)
-    try {
-      const formData = new FormData()
-      formData.append('app_link_name', config.app_link_name)
-      formData.append('report_link_name', config.report_link_name)
-      if (config.bank_field_name) formData.append('bank_field_name', config.bank_field_name)
-      if (config.bill_field_name) formData.append('bill_field_name', config.bill_field_name)
+  try {
+    const formData = new FormData()
+    formData.append('app_link_name', config.app_link_name)
+    formData.append('report_link_name', config.report_link_name)
+    if (config.bank_field_name) formData.append('bank_field_name', config.bank_field_name)
+    if (config.bill_field_name) formData.append('bill_field_name', config.bill_field_name)
 
-      // ✅ NO FILTERS - Always fetch ALL
-      formData.append('store_images', 'false')
-      formData.append('fetch_all', 'true')
-      formData.append('max_records_limit', '5000')
+    // ✅ NEW: Pass exclude parameter
+    formData.append('exclude_already_extracted', 'true')  // Always exclude by default
+    formData.append('include_failed_retries', 'false')     // Don't retry failed by default
 
-      const response = await fetch(`${API_BASE_URL}/ocr/auto-extract/preview`, {
-        method: 'POST',
-        body: formData
-      })
+    if (selectedFieldsForLoading.size > 0) {
+      formData.append('selected_fields', JSON.stringify([...selectedFieldsForLoading]))
+    }
+
+    formData.append('store_images', 'false')
+    formData.append('fetch_all', 'true')
+    formData.append('max_records_limit', '5000')
+
+    const response = await fetch(`${API_BASE_URL}/ocr/auto-extract/preview`, {
+      method: 'POST',
+      body: formData
+    })
 
       const data = await response.json()
 
       if (data.success) {
-        const loadedRecords = data.sample_records || []
+        let loadedRecords = data.sample_records || []
         
-        // Store ALL records with ALL fields
+        setConfiguredFields({
+          hasBankField: !!config.bank_field_name,
+          hasBillField: !!config.bill_field_name
+        })
+        
+        loadedRecords = flattenOCRData(loadedRecords, config)
+        
         setAllRecords(loadedRecords)
         setTotalRecordsAvailable(data.total_records || loadedRecords.length)
         setSelectedRecords(new Set())
         setCurrentPage(1)
         
-        // ✅ Auto-detect available fields from first record
         if (loadedRecords.length > 0) {
           const firstRecord = loadedRecords[0]
-          const detectedFields = Object.keys(firstRecord).filter(key => 
+          let detectedFields = Object.keys(firstRecord).filter(key => 
             !['has_bank_image', 'has_bill_image'].includes(key)
           )
           
-          // Update available fields if not already set
+          if (!config.bank_field_name) {
+            detectedFields = detectedFields.filter(k => !k.startsWith('bank_'))
+          }
+          if (!config.bill_field_name) {
+            detectedFields = detectedFields.filter(k => !k.startsWith('bill_'))
+          }
+          
           if (availableFields.all_fields.length === 0) {
             setAvailableFields(prev => ({
               ...prev,
               all_fields: detectedFields
             }))
           }
+          
+          const defaultVisible = new Set(['student_name', 'record_id'])
+          if (config.bank_field_name) defaultVisible.add('has_bank_image')
+          if (config.bill_field_name) defaultVisible.add('has_bill_image')
+          
+          // ✅ NEW: Add selected fields to visible fields
+          selectedFieldsForLoading.forEach(field => {
+            if (detectedFields.includes(field)) {
+              defaultVisible.add(field)
+            }
+          })
+          
+          setVisibleFields(defaultVisible)
         }
-        
-        console.log('✅ Loaded records:', loadedRecords.length)
-        console.log('✅ Sample record fields:', loadedRecords[0] ? Object.keys(loadedRecords[0]) : [])
         
         toast.success(
           `✅ Loaded ${loadedRecords.length} records` + 
@@ -189,7 +325,6 @@ export default function AutoExtractor() {
       if (config.bank_field_name) formData.append('bank_field_name', config.bank_field_name)
       if (config.bill_field_name) formData.append('bill_field_name', config.bill_field_name)
 
-      // ✅ NO FILTERS - just send selected IDs
       formData.append('selected_record_ids', JSON.stringify([...selectedRecords]))
 
       const response = await fetch(`${API_BASE_URL}/ocr/auto-extract/start`, {
@@ -276,7 +411,6 @@ export default function AutoExtractor() {
   }
 
   const addFilter = () => {
-    // Get available fields from records
     const fieldOptions = allRecords.length > 0 
       ? Object.keys(allRecords[0]).filter(key => !['has_bank_image', 'has_bill_image'].includes(key))
       : availableFields.all_fields
@@ -301,7 +435,6 @@ export default function AutoExtractor() {
     toast.success('All filters cleared')
   }
 
-  // ✅ NEW: Field visibility functions
   const toggleFieldVisibility = (fieldName) => {
     const newVisible = new Set(visibleFields)
     if (newVisible.has(fieldName)) {
@@ -321,7 +454,10 @@ export default function AutoExtractor() {
   }
 
   const showDefaultFields = () => {
-    setVisibleFields(new Set(['student_name', 'record_id', 'has_bank_image', 'has_bill_image']))
+    const defaultFields = new Set(['student_name', 'record_id'])
+    if (config.bank_field_name) defaultFields.add('has_bank_image')
+    if (config.bill_field_name) defaultFields.add('has_bill_image')
+    setVisibleFields(defaultFields)
     toast.success('Reset to default fields')
   }
 
@@ -401,11 +537,9 @@ export default function AutoExtractor() {
     }))
   }
 
-  // ✅ CLIENT-SIDE FILTERING - Applied to all records
   const filteredRecords = useMemo(() => {
     let filtered = [...allRecords]
 
-    // Apply custom filters
     if (filters.length > 0) {
       filtered = filtered.filter(record => {
         return filters.every(filter => {
@@ -440,7 +574,6 @@ export default function AutoExtractor() {
       })
     }
 
-    // Apply search query
     if (searchQuery) {
       filtered = filtered.filter(record => {
         const searchLower = searchQuery.toLowerCase()
@@ -450,7 +583,6 @@ export default function AutoExtractor() {
       })
     }
 
-    // Apply sorting
     if (sortConfig.key) {
       filtered.sort((a, b) => {
         const aVal = a[sortConfig.key]
@@ -471,11 +603,19 @@ export default function AutoExtractor() {
     return filtered
   }, [allRecords, filters, searchQuery, sortConfig])
 
-  // Get displayable fields
   const displayableFields = useMemo(() => {
     if (allRecords.length === 0) return []
-    return Object.keys(allRecords[0])
-  }, [allRecords])
+    let fields = Object.keys(allRecords[0])
+    
+    if (!config.bank_field_name) {
+      fields = fields.filter(f => !f.startsWith('bank_'))
+    }
+    if (!config.bill_field_name) {
+      fields = fields.filter(f => !f.startsWith('bill_'))
+    }
+    
+    return fields
+  }, [allRecords, config.bank_field_name, config.bill_field_name])
 
   const totalPages = Math.ceil(filteredRecords.length / recordsPerPage)
   const startIndex = (currentPage - 1) * recordsPerPage
@@ -655,11 +795,6 @@ export default function AutoExtractor() {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
-        @keyframes gradient {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
         .step-number {
           width: 40px;
           height: 40px;
@@ -684,8 +819,8 @@ export default function AutoExtractor() {
           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
           padding: 16px;
           z-index: 1000;
-          min-width: 300px;
-          max-height: 400px;
+          min-width: 350px;
+          max-height: 500px;
           overflow-y: auto;
         }
         .field-checkbox {
@@ -705,6 +840,37 @@ export default function AutoExtractor() {
           height: 18px;
           cursor: pointer;
           accent-color: #8B5CF6;
+        }
+        .category-header {
+          font-size: 12px;
+          font-weight: 700;
+          color: #64748B;
+          text-transform: uppercase;
+          margin-top: 12px;
+          margin-bottom: 8px;
+          padding-left: 4px;
+          letter-spacing: 0.5px;
+        }
+        .category-header:first-child {
+          margin-top: 0;
+        }
+        .field-selector-modal {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2000;
+        }
+        .field-selector-content {
+          background: white;
+          border-radius: 24px;
+          padding: 32px;
+          max-width: 600px;
+          max-height: 80vh;
+          overflow-y: auto;
+          box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
         }
       `}</style>
 
@@ -782,37 +948,237 @@ export default function AutoExtractor() {
                 )}
               </div>
 
-              {/* Step 2: Select Extract Fields */}
+              {/* ✅ NEW: Step 2 - Select Fields for Filtering */}
               {availableFields.all_fields.length > 0 && (
                 <div style={{ marginBottom: '40px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
                     <div className="step-number">2</div>
                     <div>
                       <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#1E293B' }}>
-                        Select Extract Fields
+                        Select Fields for Filtering
                       </h3>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748B' }}>
+                        Choose which fields to fetch for advanced filtering
+                      </p>
+                    </div>
+                  </div>
+
+                  <div style={{ 
+                    padding: '20px', 
+                    background: '#F8FAFC', 
+                    borderRadius: '12px',
+                    border: '2px solid #E2E8F0',
+                    display: 'flex',
+                    gap: '12px',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Settings size={20} color="#8B5CF6" />
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#1E293B' }}>
+                          {selectedFieldsForLoading.size} fields selected
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#64748B' }}>
+                          {availableFields.text_fields.length} text fields • {availableFields.file_fields.length} file fields
+                        </div>
+                      </div>
+                    </div>
+                    <button 
+                      className="btn-secondary"
+                      onClick={() => setShowFieldSelector(!showFieldSelector)}
+                      style={{ padding: '10px 20px' }}
+                    >
+                      <Settings size={16} /> Customize
+                    </button>
+                  </div>
+
+                  {/* ✅ NEW: Field Selector Modal */}
+                  {showFieldSelector && (
+                    <div style={{ 
+                      position: 'fixed', 
+                      inset: 0, 
+                      background: 'rgba(0, 0, 0, 0.5)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 2000
+                    }} onClick={() => setShowFieldSelector(false)}>
+                      <div 
+                        className="glass-card"
+                        style={{ 
+                          padding: '32px', 
+                          maxWidth: '600px',
+                          maxHeight: '80vh',
+                          overflow: 'auto',
+                          width: '90%'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                          <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#1E293B' }}>
+                            Select Fields to Fetch
+                          </h3>
+                          <button 
+                            onClick={() => setShowFieldSelector(false)}
+                            style={{ 
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              fontSize: '24px',
+                              color: '#64748B'
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+                          <button 
+                            onClick={() => setSelectedFieldsForLoading(new Set(availableFields.all_fields))}
+                            style={{ 
+                              padding: '8px 16px', 
+                              background: '#8B5CF6', 
+                              color: 'white', 
+                              border: 'none', 
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              fontSize: '13px'
+                            }}
+                          >
+                            Select All
+                          </button>
+                          <button 
+                            onClick={() => setSelectedFieldsForLoading(new Set())}
+                            style={{ 
+                              padding: '8px 16px', 
+                              background: '#F1F5F9', 
+                              color: '#475569', 
+                              border: 'none', 
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              fontSize: '13px'
+                            }}
+                          >
+                            Clear All
+                          </button>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                          {/* Text Fields */}
+                          <div>
+                            <div className="category-header">Text Fields</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {availableFields.text_fields.map(field => (
+                                <label key={field} className="field-checkbox">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedFieldsForLoading.has(field)}
+                                    onChange={(e) => {
+                                      const newSelected = new Set(selectedFieldsForLoading)
+                                      if (e.target.checked) {
+                                        newSelected.add(field)
+                                      } else {
+                                        newSelected.delete(field)
+                                      }
+                                      setSelectedFieldsForLoading(newSelected)
+                                    }}
+                                  />
+                                  <span style={{ fontSize: '14px', color: '#1E293B', fontWeight: 500 }}>
+                                    {field.replace(/_/g, ' ')}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* File Fields */}
+                          <div>
+                            <div className="category-header">File Fields</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {availableFields.file_fields.map(field => (
+                                <label key={field} className="field-checkbox">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedFieldsForLoading.has(field)}
+                                    onChange={(e) => {
+                                      const newSelected = new Set(selectedFieldsForLoading)
+                                      if (e.target.checked) {
+                                        newSelected.add(field)
+                                      } else {
+                                        newSelected.delete(field)
+                                      }
+                                      setSelectedFieldsForLoading(newSelected)
+                                    }}
+                                  />
+                                  <span style={{ fontSize: '14px', color: '#1E293B', fontWeight: 500 }}>
+                                    {field.replace(/_/g, ' ')} <FileImage size={12} style={{ display: 'inline' }} />
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <button 
+                          className="btn-primary"
+                          onClick={() => setShowFieldSelector(false)}
+                          style={{ width: '100%', marginTop: '24px', justifyContent: 'center' }}
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Step 3: Select Extract Fields (bank/bill) */}
+              {availableFields.all_fields.length > 0 && (
+                <div style={{ marginBottom: '40px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                    <div className="step-number">3</div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#1E293B' }}>
+                        Select OCR Fields
+                      </h3>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748B' }}>
+                        Choose fields to extract with Gemini Vision
+                      </p>
                     </div>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                     <div>
                       <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>
-                        Bank Passbook Field
+                        Bank Passbook Field {config.bank_field_name && <span style={{ color: '#10B981', fontWeight: 700 }}>✓</span>}
                       </label>
                       <select className="select-modern" value={config.bank_field_name} onChange={(e) => setConfig({ ...config, bank_field_name: e.target.value })}>
-                        <option value="">-- None --</option>
+                        <option value="">-- None (skip bank extraction) --</option>
                         {availableFields.all_fields.map(field => <option key={field} value={field}>{field}</option>)}
                       </select>
+                      {config.bank_field_name && (
+                        <div style={{ fontSize: '12px', color: '#64748B', marginTop: '8px' }}>
+                          ✓ Bank fields will be extracted
+                        </div>
+                      )}
                     </div>
 
                     <div>
                       <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>
-                        Bill/Receipt Field
+                        Bill/Receipt Field {config.bill_field_name && <span style={{ color: '#10B981', fontWeight: 700 }}>✓</span>}
                       </label>
                       <select className="select-modern" value={config.bill_field_name} onChange={(e) => setConfig({ ...config, bill_field_name: e.target.value })}>
-                        <option value="">-- None --</option>
+                        <option value="">-- None (skip bill extraction) --</option>
                         {availableFields.all_fields.map(field => <option key={field} value={field}>{field}</option>)}
                       </select>
+                      {config.bill_field_name && (
+                        <div style={{ fontSize: '12px', color: '#64748B', marginTop: '8px' }}>
+                          ✓ Bill fields will be extracted
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -832,7 +1198,7 @@ export default function AutoExtractor() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>Ready to load records</div>
                   <div style={{ fontSize: '13px', color: '#64748B', marginTop: '4px' }}>
-                    ✅ Fetches ALL records (no server-side filters)
+                    ✅ Fetches ALL records • Selected {selectedFieldsForLoading.size} fields for filtering • OCR: {config.bank_field_name ? '✓ Bank' : '✗ Bank'} {config.bill_field_name ? '✓ Bill' : '✗ Bill'}
                   </div>
                 </div>
                 <button
@@ -846,10 +1212,10 @@ export default function AutoExtractor() {
               </div>
             </motion.div>
 
-            {/* Records Table */}
+            {/* Records Table Section */}
             {allRecords.length > 0 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                {/* ✅ NEW: Client-Side Filter Banner */}
+                {/* Client-Side Filter Banner */}
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -870,7 +1236,7 @@ export default function AutoExtractor() {
                       ✅ Client-Side Filtering Active
                     </div>
                     <div style={{ fontSize: '14px', opacity: 0.9 }}>
-                      All {allRecords.length} records loaded • Filters apply instantly in browser
+                      All {allRecords.length} records loaded • {selectedFieldsForLoading.size} fields available for filtering
                       {(filters.length > 0 || searchQuery) && ` • Showing ${filteredRecords.length} filtered`}
                     </div>
                   </div>
@@ -910,18 +1276,18 @@ export default function AutoExtractor() {
                       />
                     </div>
                     
-                    {/* ✅ NEW: Field Selector Button */}
+                    {/* Field Column Selector */}
                     <div style={{ position: 'relative' }}>
                       <button 
                         className="btn-secondary" 
-                        onClick={() => setShowFieldSelector(!showFieldSelector)}
+                        onClick={() => setShowFieldColumnSelector(!showFieldColumnSelector)}
                         style={{ padding: '14px 24px' }}
                       >
                         <Columns size={18} /> 
                         Columns ({visibleFields.size})
                       </button>
                       
-                      {showFieldSelector && (
+                      {showFieldColumnSelector && (
                         <div className="field-selector-dropdown">
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '2px solid #E2E8F0' }}>
                             <span style={{ fontSize: '14px', fontWeight: 700, color: '#1E293B' }}>
@@ -970,7 +1336,7 @@ export default function AutoExtractor() {
                                   onChange={() => toggleFieldVisibility(field)}
                                 />
                                 <span style={{ fontSize: '14px', color: '#1E293B', fontWeight: 500 }}>
-                                  {field}
+                                  {field.replace(/_/g, ' ')}
                                 </span>
                               </label>
                             ))}
@@ -984,13 +1350,13 @@ export default function AutoExtractor() {
                     </button>
                   </div>
 
-                  {/* ✅ NEW: Filters Section */}
+                  {/* Filters Section */}
                   <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: '12px', marginBottom: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <Filter size={18} color="#8B5CF6" />
                         <span style={{ fontSize: '15px', fontWeight: 700, color: '#1E293B' }}>
-                          Client-Side Filters
+                          Advanced Filters ({selectedFieldsForLoading.size} fields available)
                         </span>
                         {filters.length > 0 && (
                           <span style={{ 
@@ -1036,7 +1402,7 @@ export default function AutoExtractor() {
                               style={{ padding: '10px 14px' }}
                             >
                               {displayableFields.map(field => (
-                                <option key={field} value={field}>{field}</option>
+                                <option key={field} value={field}>{field.replace(/_/g, ' ')}</option>
                               ))}
                             </select>
 
@@ -1111,15 +1477,31 @@ export default function AutoExtractor() {
 
                     <div style={{ width: '2px', height: '32px', background: '#E2E8F0', margin: '0 8px' }} />
 
-                    <button className="btn-secondary" onClick={() => selectByCondition('has_both')} style={{ padding: '8px 16px', fontSize: '13px' }}>
-                      <CheckCircle2 size={14} /> Both Images
-                    </button>
-                    <button className="btn-secondary" onClick={() => selectByCondition('has_bank')} style={{ padding: '8px 16px', fontSize: '13px' }}>
-                      <FileImage size={14} /> Bank Only
-                    </button>
-                    <button className="btn-secondary" onClick={() => selectByCondition('missing_bank')} style={{ padding: '8px 16px', fontSize: '13px' }}>
-                      <MinusCircle size={14} /> Missing Bank
-                    </button>
+                    {configuredFields.hasBankField && configuredFields.hasBillField && (
+                      <button className="btn-secondary" onClick={() => selectByCondition('has_both')} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                        <CheckCircle2 size={14} /> Both Images
+                      </button>
+                    )}
+                    {configuredFields.hasBankField && (
+                      <>
+                        <button className="btn-secondary" onClick={() => selectByCondition('has_bank')} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                          <FileImage size={14} /> Bank Only
+                        </button>
+                        <button className="btn-secondary" onClick={() => selectByCondition('missing_bank')} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                          <MinusCircle size={14} /> Missing Bank
+                        </button>
+                      </>
+                    )}
+                    {configuredFields.hasBillField && (
+                      <>
+                        <button className="btn-secondary" onClick={() => selectByCondition('has_bill')} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                          <FileImage size={14} /> Bill Only
+                        </button>
+                        <button className="btn-secondary" onClick={() => selectByCondition('missing_bill')} style={{ padding: '8px 16px', fontSize: '13px' }}>
+                          <MinusCircle size={14} /> Missing Bill
+                        </button>
+                      </>
+                    )}
 
                     <div style={{ width: '2px', height: '32px', background: '#E2E8F0', margin: '0 8px' }} />
 
@@ -1210,7 +1592,6 @@ export default function AutoExtractor() {
                             {Array.from(visibleFields).map(field => {
                               const value = record[field]
                               
-                              // Special rendering for boolean fields
                               if (typeof value === 'boolean') {
                                 return (
                                   <td key={field} style={{ textAlign: 'center' }}>
@@ -1227,10 +1608,9 @@ export default function AutoExtractor() {
                                 )
                               }
                               
-                              // Regular text rendering
                               return (
                                 <td key={field}>
-                                  {String(value || '')}
+                                  {String(value || '').substring(0, 100)}
                                 </td>
                               )
                             })}
@@ -1340,46 +1720,12 @@ export default function AutoExtractor() {
                 <span style={{ fontSize: '36px', fontWeight: 800, color: 'white' }}>${(jobStatus?.cost?.total_cost_usd || 0).toFixed(4)}</span>
               </div>
 
-              {/* Results */}
-              {jobResults.length > 0 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                  <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <BarChart3 size={24} color="#8B5CF6" /> Recent Extractions
-                  </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-                    {jobResults.slice(0, 6).map((result, idx) => (
-                      <div key={idx} style={{ background: 'white', borderRadius: '16px', padding: '20px', border: '2px solid #F1F5F9' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                          <div>
-                            <div style={{ fontSize: '16px', fontWeight: 700 }}>{result.student_name || 'Unknown'}</div>
-                            <div style={{ fontSize: '12px', color: '#64748B', fontFamily: 'monospace' }}>{result.record_id}</div>
-                          </div>
-                          <span style={{
-                            padding: '6px 12px',
-                            borderRadius: '8px',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            background: result.status === 'success' ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)' : 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
-                            color: 'white'
-                          }}>{result.status}</span>
-                        </div>
-                        <div style={{ display: 'flex', gap: '12px', fontSize: '13px', color: '#64748B' }}>
-                          <span>{result.bank_image_supabase ? '✓' : '✗'} Bank</span>
-                          <span>{result.bill_image_supabase?.length > 0 ? `✓ ${result.bill_image_supabase.length} Bill(s)` : '✗ Bill'}</span>
-                          <span style={{ marginLeft: 'auto', color: '#8B5CF6', fontWeight: 600 }}>${(result.cost_usd || 0).toFixed(4)}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-
               {jobStatus?.status === 'completed' && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '32px' }}>
                   <button className="btn-secondary" onClick={handleBackToMain} style={{ padding: '18px', justifyContent: 'center' }}>
                     <ArrowLeft size={20} /> Back
                   </button>
-                  <button className="btn-primary" onClick={() => { setActiveJob(null); setJobStatus(null); setRecords([]); setSelectedRecords(new Set()) }} style={{ padding: '18px', justifyContent: 'center' }}>
+                  <button className="btn-primary" onClick={() => { setActiveJob(null); setJobStatus(null); setAllRecords([]); setSelectedRecords(new Set()) }} style={{ padding: '18px', justifyContent: 'center' }}>
                     <RefreshCw size={20} /> New Extraction
                   </button>
                 </div>
