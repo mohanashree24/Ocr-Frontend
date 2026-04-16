@@ -1371,7 +1371,7 @@ body {
 }
 
 /* Text Utilities */
-.text-purple {
+.text-orange {
   color: var(--purple);
 }
 
@@ -1562,4 +1562,1072 @@ body {
 .glass-card:hover {
   background: rgba(255, 255, 255, 0.05);
   box-shadow: 0 20px 60px rgba(0, 102, 255, 0.15);
+}
+
+/* ============================================
+   AWESOME ANIMATIONS & ENHANCEMENTS
+   ============================================ */
+
+/* Smooth Page Transitions */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Bounce Animations */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes bounceUp {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Pulse & Glow Animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(0, 102, 255, 0.5), 0 0 10px rgba(0, 102, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(0, 102, 255, 0.8), 0 0 30px rgba(0, 102, 255, 0.5);
+  }
+}
+
+@keyframes glowText {
+  0%, 100% {
+    text-shadow: 0 0 5px rgba(0, 102, 255, 0.5);
+  }
+  50% {
+    text-shadow: 0 0 20px rgba(0, 102, 255, 0.8), 0 0 30px rgba(0, 102, 255, 0.5);
+  }
+}
+
+/* Rotate & Spin Animations */
+@keyframes rotate360 {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rotateReverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Flip Animations */
+@keyframes flipX {
+  from {
+    transform: rotateX(0deg);
+  }
+  to {
+    transform: rotateX(360deg);
+  }
+}
+
+@keyframes flipY {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+/* Shake Animation */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-5px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(5px);
+  }
+}
+
+/* Wiggle Animation */
+@keyframes wiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-2deg);
+  }
+  75% {
+    transform: rotate(2deg);
+  }
+}
+
+/* Heartbeat Animation */
+@keyframes heartbeat {
+  0%, 100% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.1);
+  }
+  50% {
+    transform: scale(1);
+  }
+}
+
+/* Rainbow Animation */
+@keyframes rainbow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Wave Animation */
+@keyframes wave {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-5px);
+  }
+  75% {
+    transform: translateY(5px);
+  }
+}
+
+/* Blur In Animation */
+@keyframes blurIn {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+/* Blur Out Animation */
+@keyframes blurOut {
+  from {
+    opacity: 1;
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    filter: blur(10px);
+  }
+}
+
+/* Neon Glow Animation */
+@keyframes neonGlow {
+  0%, 100% {
+    text-shadow: 0 0 10px rgba(0, 102, 255, 0.5), 0 0 20px rgba(0, 102, 255, 0.3);
+    box-shadow: 0 0 10px rgba(0, 102, 255, 0.5), 0 0 20px rgba(0, 102, 255, 0.3);
+  }
+  50% {
+    text-shadow: 0 0 20px rgba(0, 102, 255, 1), 0 0 40px rgba(0, 102, 255, 0.8);
+    box-shadow: 0 0 20px rgba(0, 102, 255, 1), 0 0 40px rgba(0, 102, 255, 0.8);
+  }
+}
+
+/* Gradient Shift Animation */
+@keyframes gradientFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Particle Float Animation */
+@keyframes particleFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-100px) translateX(20px);
+  }
+}
+
+/* Apply animations to components */
+.hero-section {
+  animation: fadeInDown 0.8s ease-out;
+}
+
+.hero-title {
+  animation: slideInUp 0.8s ease-out 0.1s both;
+}
+
+.hero-subtitle {
+  animation: slideInUp 0.8s ease-out 0.2s both;
+}
+
+.upload-card {
+  animation: slideInUp 0.6s ease-out both;
+}
+
+.upload-card:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.upload-card:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.stat-card {
+  animation: slideInUp 0.6s ease-out both;
+}
+
+.stat-card:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.stat-card:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.stat-card:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.stat-card:nth-child(4) {
+  animation-delay: 0.4s;
+}
+
+.log-item-container {
+  animation: slideInLeft 0.5s ease-out both;
+}
+
+.chart-section {
+  animation: fadeInUp 0.8s ease-out 0.3s both;
+}
+
+.breakdown-card {
+  animation: scaleIn 0.6s ease-out both;
+}
+
+.breakdown-card:nth-child(1) {
+  animation-delay: 0.2s;
+}
+
+.breakdown-card:nth-child(2) {
+  animation-delay: 0.3s;
+}
+
+/* Enhanced Hover Effects */
+.upload-card:hover {
+  animation: none;
+}
+
+.stat-card:hover {
+  animation: none;
+}
+
+/* Button Animations */
+.btn-primary {
+  animation: slideInUp 0.6s ease-out;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.btn-primary:hover {
+  animation: pulse 0.6s ease-in-out;
+}
+
+.btn-primary:active {
+  animation: bounceIn 0.4s ease-out;
+}
+
+/* Icon Animations */
+.card-icon {
+  animation: bounceIn 0.6s ease-out 0.3s both;
+}
+
+.stat-icon {
+  animation: bounceIn 0.6s ease-out both;
+}
+
+.stat-card:hover .stat-icon {
+  animation: rotate360 0.6s ease-in-out;
+}
+
+/* Loading State Animations */
+.loading-spinner {
+  animation: spinSlow 1s linear infinite;
+}
+
+.loading-container {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Chart Bar Animations */
+.chart-bar {
+  animation: slideInUp 0.6s ease-out both;
+  transform-origin: bottom;
+}
+
+.chart-bar-wrapper:nth-child(1) .chart-bar {
+  animation-delay: 0.1s;
+}
+
+.chart-bar-wrapper:nth-child(2) .chart-bar {
+  animation-delay: 0.2s;
+}
+
+.chart-bar-wrapper:nth-child(3) .chart-bar {
+  animation-delay: 0.3s;
+}
+
+.chart-bar-wrapper:nth-child(4) .chart-bar {
+  animation-delay: 0.4s;
+}
+
+.chart-bar-wrapper:nth-child(5) .chart-bar {
+  animation-delay: 0.5s;
+}
+
+.chart-bar-wrapper:nth-child(6) .chart-bar {
+  animation-delay: 0.6s;
+}
+
+/* Modal Animations */
+.modal-overlay {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.modal-content {
+  animation: bounceIn 0.5s ease-out;
+}
+
+/* Smooth Transitions */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Text Animations */
+.gradient-text {
+  animation: gradientFlow 3s ease infinite;
+  background-size: 200% 200%;
+}
+
+/* Floating Elements */
+.float-animation {
+  animation: wave 3s ease-in-out infinite;
+}
+
+/* Glow Effects on Hover */
+.upload-card:hover,
+.stat-card:hover,
+.chart-section:hover,
+.breakdown-card:hover {
+  animation: glow 1.5s ease-in-out infinite;
+}
+
+/* Enhanced Stat Value Animation */
+.stat-value {
+  animation: bounceUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Smooth Scroll Behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Stagger Animation for Lists */
+.logs-list .log-item-container {
+  animation: slideInLeft 0.5s ease-out both;
+}
+
+.logs-list .log-item-container:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.logs-list .log-item-container:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.logs-list .log-item-container:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.logs-list .log-item-container:nth-child(4) {
+  animation-delay: 0.4s;
+}
+
+.logs-list .log-item-container:nth-child(5) {
+  animation-delay: 0.5s;
+}
+
+/* Expansion Animation */
+.log-expansion {
+  animation: slideInDown 0.4s ease-out;
+}
+
+/* Badge Animations */
+.log-badge {
+  animation: scaleIn 0.4s ease-out;
+}
+
+/* Enhanced Transitions for Interactive Elements */
+.nav-btn {
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.nav-btn:hover {
+  animation: bounce 0.6s ease-in-out;
+}
+
+.input-field {
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.input-field:focus {
+  animation: blurIn 0.3s ease-out;
+}
+
+/* Smooth Color Transitions */
+.drop-zone {
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.drop-zone:hover {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+/* Enhanced File Item Animation */
+.file-item {
+  animation: slideInLeft 0.4s ease-out both;
+}
+
+.file-item:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.file-item:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.file-item:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* Smooth Expansion Animation */
+.expansion-content {
+  animation: slideInDown 0.5s ease-out;
+}
+
+.expansion-card {
+  animation: scaleIn 0.4s ease-out both;
+}
+
+.expansion-card:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.expansion-card:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+/* Enhanced Breakdown Item Animation */
+.breakdown-item {
+  animation: slideInLeft 0.4s ease-out both;
+}
+
+.breakdown-item:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.breakdown-item:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.breakdown-item:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.breakdown-item:nth-child(4) {
+  animation-delay: 0.4s;
+}
+
+/* Smooth Scrollbar Animation */
+::-webkit-scrollbar-thumb {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Enhanced Status Badge Animation */
+.status-badge {
+  animation: scaleIn 0.4s ease-out;
+}
+
+.status-badge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  animation: shimmer 2s infinite;
+}
+
+/* Smooth Tooltip Animation */
+.tooltip::after {
+  animation: slideInUp 0.3s ease-out;
+}
+
+/* Enhanced Detail Item Animation */
+.detail-item {
+  animation: fadeInLeft 0.4s ease-out both;
+}
+
+.detail-item:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.detail-item:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.detail-item:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* Smooth Transition for Form Fields */
+.form-fields {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Enhanced Breakdown Dot Animation */
+.breakdown-dot {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Smooth Transition for Header */
+.header {
+  animation: slideInDown 0.6s ease-out;
+}
+
+/* Enhanced Logo Animation */
+.logo {
+  animation: fadeInLeft 0.6s ease-out;
+}
+
+.logo:hover {
+  animation: bounce 0.6s ease-in-out;
+}
+
+/* Smooth Navigation Animation */
+.nav {
+  animation: fadeInRight 0.6s ease-out;
+}
+
+/* Enhanced Progress Bar Animation */
+.progress-fill {
+  animation: progressShine 2s ease-in-out infinite;
+}
+
+/* Smooth Token Counter Animation */
+.token-counter {
+  animation: scaleIn 0.5s ease-out;
+}
+
+.token-value {
+  animation: bounceUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Enhanced Stat Label Animation */
+.stat-label {
+  animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
+/* Smooth Transition for Chart Container */
+.chart-container {
+  animation: fadeInUp 0.8s ease-out;
+}
+
+/* Enhanced Chart Value Animation */
+.chart-value {
+  animation: slideInDown 0.4s ease-out;
+}
+
+/* Smooth Transition for Breakdown Grid */
+.breakdown-grid {
+  animation: fadeInUp 0.8s ease-out 0.2s both;
+}
+
+/* Enhanced Expansion Grid Animation */
+.expansion-grid {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Smooth Transition for Logs List */
+.logs-list {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Enhanced Log Meta Animation */
+.log-meta {
+  animation: fadeInRight 0.4s ease-out;
+}
+
+/* Smooth Transition for Log Timestamp */
+.log-timestamp {
+  animation: fadeInUp 0.4s ease-out 0.1s both;
+}
+
+/* Enhanced Expand Hint Animation */
+.expand-hint {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Smooth Transition for Log Details */
+.log-details {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+/* Enhanced Log Main Animation */
+.log-main {
+  animation: fadeInLeft 0.4s ease-out;
+}
+
+/* Smooth Transition for Log Filename */
+.log-filename {
+  animation: slideInLeft 0.4s ease-out;
+}
+
+/* Enhanced Log Status Animation */
+.log-status {
+  animation: scaleIn 0.4s ease-out;
+}
+
+/* Smooth Transition for Log Content */
+.log-content {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+/* Enhanced Log Item Animation */
+.log-item {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+/* Smooth Transition for Card Header */
+.card-header {
+  animation: fadeInDown 0.4s ease-out;
+}
+
+/* Enhanced Bank Icon Animation */
+.bank-icon {
+  animation: bounceIn 0.6s ease-out 0.2s both;
+}
+
+.bank-icon:hover {
+  animation: rotate360 0.6s ease-in-out;
+}
+
+/* Enhanced Bill Icon Animation */
+.bill-icon {
+  animation: bounceIn 0.6s ease-out 0.3s both;
+}
+
+.bill-icon:hover {
+  animation: rotateReverse 0.6s ease-in-out;
+}
+
+/* Smooth Transition for Drop Zone */
+.drop-zone {
+  animation: scaleIn 0.5s ease-out;
+}
+
+/* Enhanced File List Animation */
+.file-list {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+/* Smooth Transition for Input Field */
+.input-field {
+  animation: slideInUp 0.4s ease-out both;
+}
+
+.input-field:nth-of-type(1) {
+  animation-delay: 0.1s;
+}
+
+.input-field:nth-of-type(2) {
+  animation-delay: 0.2s;
+}
+
+.input-field:nth-of-type(3) {
+  animation-delay: 0.3s;
+}
+
+/* Enhanced Select Field Animation */
+.select-field {
+  animation: slideInUp 0.4s ease-out;
+}
+
+/* Smooth Transition for Stats Header */
+.stats-header,
+.logs-header {
+  animation: fadeInDown 0.5s ease-out;
+}
+
+/* Enhanced Stats Grid Animation */
+.stats-grid {
+  animation: fadeInUp 0.6s ease-out 0.1s both;
+}
+
+/* Smooth Transition for Background Orbs */
+.background-orbs {
+  animation: backgroundPulse 15s ease-in-out infinite;
+}
+
+/* Enhanced Orb Animation */
+.orb {
+  animation: orbFloat 20s ease-in-out infinite;
+}
+
+.orb-1 {
+  animation-delay: 0s;
+}
+
+.orb-2 {
+  animation-delay: 5s;
+}
+
+.orb-3 {
+  animation-delay: 10s;
+}
+
+/* Smooth Grid Move Animation */
+.background-orbs::after {
+  animation: gridMove 30s linear infinite;
+}
+
+/* Enhanced Logo Gradient Animation */
+.logo h1 {
+  animation: gradientShift 4s ease infinite;
+}
+
+/* Smooth Transition for Navigation */
+.nav {
+  animation: fadeInRight 0.6s ease-out;
+}
+
+/* Enhanced Navigation Button Animation */
+.nav-btn {
+  animation: fadeInRight 0.6s ease-out both;
+}
+
+.nav-btn:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.nav-btn:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.nav-btn:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.nav-btn:nth-child(4) {
+  animation-delay: 0.4s;
+}
+
+/* Smooth Transition for Header */
+.header {
+  animation: slideInDown 0.6s ease-out;
+}
+
+/* Enhanced Container Animation */
+.container {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Smooth Transition for Main */
+.main {
+  animation: fadeInUp 0.8s ease-out 0.2s both;
+}
+
+/* Enhanced App Animation */
+.app {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Smooth Transition for Upload Grid */
+.upload-grid {
+  animation: fadeInUp 0.6s ease-out 0.1s both;
+}
+
+/* Enhanced Stat Card Hover Animation */
+.stat-card:hover {
+  animation: glow 1.5s ease-in-out infinite;
+}
+
+/* Smooth Transition for Chart Section */
+.chart-section {
+  animation: fadeInUp 0.8s ease-out 0.3s both;
+}
+
+/* Enhanced Breakdown Grid Animation */
+.breakdown-grid {
+  animation: fadeInUp 0.8s ease-out 0.2s both;
+}
+
+/* Smooth Transition for Logs List */
+.logs-list {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Enhanced Modal Overlay Animation */
+.modal-overlay {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+/* Smooth Transition for Modal Content */
+.modal-content {
+  animation: bounceIn 0.5s ease-out;
+}
+
+/* Enhanced Token Counter Animation */
+.token-counter {
+  animation: scaleIn 0.5s ease-out;
+}
+
+/* Smooth Transition for Progress Bar */
+.progress-bar {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+/* Enhanced Progress Fill Animation */
+.progress-fill {
+  animation: progressShine 2s ease-in-out infinite;
+}
+
+/* Smooth Transition for Loading Container */
+.loading-container {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Enhanced Loading Spinner Animation */
+.loading-spinner {
+  animation: spinSlow 1s linear infinite;
+}
+
+/* Smooth Transition for Scrollbar */
+::-webkit-scrollbar {
+  animation: fadeInRight 0.6s ease-out;
+}
+
+/* Enhanced Scrollbar Track Animation */
+::-webkit-scrollbar-track {
+  animation: fadeInRight 0.6s ease-out;
+}
+
+/* Smooth Transition for Scrollbar Thumb */
+::-webkit-scrollbar-thumb {
+  animation: fadeInRight 0.6s ease-out;
+}
+
+/* Responsive Animations */
+@media (max-width: 1200px) {
+  .upload-card,
+  .stat-card,
+  .chart-section,
+  .breakdown-card,
+  .log-item-container {
+    animation: slideInUp 0.6s ease-out both;
+  }
+}
+
+@media (max-width: 768px) {
+  .upload-card,
+  .stat-card,
+  .chart-section,
+  .breakdown-card,
+  .log-item-container {
+    animation: slideInUp 0.5s ease-out both;
+  }
+
+  .hero-title {
+    font-size: 2.5rem;
+    animation: slideInUp 0.6s ease-out 0.1s both;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Accessibility - Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

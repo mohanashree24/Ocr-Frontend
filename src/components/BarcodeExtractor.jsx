@@ -110,7 +110,7 @@ export default function BarcodeExtractor() {
 
         toast.success(`✅ Loaded ${data.total_files} files`, {
           icon: '📁',
-          style: { borderRadius: '12px', background: '#8B5CF6', color: 'white' }
+          style: { borderRadius: '12px', background: '#F97316', color: 'white' }
         })
       } else {
         toast.error(`Error: ${data.error}`)
@@ -175,7 +175,7 @@ export default function BarcodeExtractor() {
     if (newFiles.length > 0) {
       toast.success(`✅ Added ${newFiles.length} file(s)`, {
         icon: '📁',
-        style: { borderRadius: '12px', background: '#8B5CF6', color: 'white' }
+        style: { borderRadius: '12px', background: '#F97316', color: 'white' }
       })
     }
   }
@@ -222,7 +222,7 @@ export default function BarcodeExtractor() {
           setJobResults([])
           toast.success(`🚀 Processing started!`, {
             duration: 5000,
-            style: { borderRadius: '12px', background: '#8B5CF6', color: 'white' }
+            style: { borderRadius: '12px', background: '#F97316', color: 'white' }
           })
         } else {
           toast.error(`Error: ${data.error}`)
@@ -249,7 +249,7 @@ export default function BarcodeExtractor() {
           setJobResults([])
           toast.success(`🚀 Processing started!`, {
             duration: 5000,
-            style: { borderRadius: '12px', background: '#8B5CF6', color: 'white' }
+            style: { borderRadius: '12px', background: '#F97316', color: 'white' }
           })
         } else {
           toast.error(`Error: ${data.error}`)
@@ -386,7 +386,7 @@ export default function BarcodeExtractor() {
   const paginatedFiles = filteredFiles.slice(startIndex, endIndex)
 
   return (
-    <div style={{ maxWidth: '1800px', margin: '0 auto', padding: '24px' }}>
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <Toaster
         position="top-right"
         toastOptions={{ duration: 4000 }}
@@ -402,13 +402,13 @@ export default function BarcodeExtractor() {
           background: rgba(255, 255, 255, 0.98);
           backdrop-filter: blur(40px);
           border-radius: 24px;
-          border: 1px solid rgba(139, 92, 246, 0.1);
+          border: 1px solid rgba(249, 115, 22, 0.1);
           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.05), 0 0 1px rgba(0, 0, 0, 0.1);
           transition: all 0.3s ease;
         }
         
         .glass-card:hover {
-          box-shadow: 0 30px 90px rgba(139, 92, 246, 0.12);
+          box-shadow: 0 30px 90px rgba(249, 115, 22, 0.12);
           transform: translateY(-2px);
         }
         
@@ -427,14 +427,14 @@ export default function BarcodeExtractor() {
         
         .input-modern:focus, .select-modern:focus {
           outline: none;
-          border-color: #8B5CF6;
+          border-color: #F97316;
           background: white;
-          box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1), 0 8px 16px rgba(139, 92, 246, 0.08);
+          box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1), 0 8px 16px rgba(249, 115, 22, 0.08);
           transform: translateY(-1px);
         }
         
         .btn-primary {
-          background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+          background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
           color: white;
           border: none;
           padding: 14px 28px;
@@ -446,7 +446,7 @@ export default function BarcodeExtractor() {
           align-items: center;
           gap: 10px;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3), 0 4px 8px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 8px 20px rgba(249, 115, 22, 0.3), 0 4px 8px rgba(0, 0, 0, 0.1);
           position: relative;
           overflow: hidden;
         }
@@ -468,7 +468,7 @@ export default function BarcodeExtractor() {
         
         .btn-primary:hover:not(:disabled) {
           transform: translateY(-3px);
-          box-shadow: 0 12px 32px rgba(139, 92, 246, 0.4), 0 8px 16px rgba(0, 0, 0, 0.15);
+          box-shadow: 0 12px 32px rgba(249, 115, 22, 0.4), 0 8px 16px rgba(0, 0, 0, 0.15);
         }
         
         .btn-primary:active:not(:disabled) {
@@ -497,11 +497,11 @@ export default function BarcodeExtractor() {
         }
         
         .btn-secondary:hover:not(:disabled) {
-          border-color: #8B5CF6;
+          border-color: #F97316;
           background: #F5F3FF;
-          color: #7C3AED;
+          color: #EA580C;
           transform: translateY(-2px);
-          box-shadow: 0 8px 16px rgba(139, 92, 246, 0.15);
+          box-shadow: 0 8px 16px rgba(249, 115, 22, 0.15);
         }
 
         .btn-secondary:disabled {
@@ -530,11 +530,11 @@ export default function BarcodeExtractor() {
         }
         
         .stat-card {
-          background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+          background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
           color: white;
           padding: 24px;
           border-radius: 16px;
-          box-shadow: 0 12px 32px rgba(139, 92, 246, 0.3);
+          box-shadow: 0 12px 32px rgba(249, 115, 22, 0.3);
           position: relative;
           overflow: hidden;
         }
@@ -600,12 +600,12 @@ export default function BarcodeExtractor() {
         .table-modern tbody tr:hover {
           background: linear-gradient(90deg, #F8F9FF 0%, #F5F3FF 100%);
           transform: scale(1.01);
-          box-shadow: 0 4px 12px rgba(139, 92, 246, 0.08);
+          box-shadow: 0 4px 12px rgba(249, 115, 22, 0.08);
         }
         
         .table-modern tbody tr.selected {
           background: linear-gradient(90deg, #EDE9FE 0%, #DDD6FE 100%);
-          border-left: 4px solid #8B5CF6;
+          border-left: 4px solid #F97316;
         }
         
         .badge-modern {
@@ -656,14 +656,14 @@ export default function BarcodeExtractor() {
           width: 40px;
           height: 40px;
           border-radius: 12px;
-          background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+          background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
           color: white;
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: 700;
           font-size: 18px;
-          box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+          box-shadow: 0 6px 16px rgba(249, 115, 22, 0.4);
         }
 
         @keyframes gradient {
@@ -681,8 +681,8 @@ export default function BarcodeExtractor() {
         }
 
         .result-card:hover {
-          border-color: #8B5CF6;
-          box-shadow: 0 8px 24px rgba(139, 92, 246, 0.15);
+          border-color: #F97316;
+          box-shadow: 0 8px 24px rgba(249, 115, 22, 0.15);
           transform: translateY(-2px);
         }
 
@@ -703,7 +703,7 @@ export default function BarcodeExtractor() {
         }
 
         .barcode-data-display:hover {
-          border-color: #8B5CF6;
+          border-color: #F97316;
           background: white;
         }
 
@@ -722,7 +722,7 @@ export default function BarcodeExtractor() {
 
         .copy-button:hover {
           background: #F1F5F9;
-          color: #8B5CF6;
+          color: #F97316;
           transform: scale(1.1);
         }
 
@@ -750,27 +750,27 @@ export default function BarcodeExtractor() {
         }
 
         .mode-tab.active {
-          color: #8B5CF6;
-          border-bottom-color: #8B5CF6;
+          color: #F97316;
+          border-bottom-color: #F97316;
         }
 
         .mode-tab:hover {
-          color: #8B5CF6;
+          color: #F97316;
         }
 
         .drag-zone {
-          border: 2px dashed #8B5CF6;
+          border: 2px dashed #F97316;
           border-radius: 16px;
           padding: 40px;
           text-align: center;
           transition: all 0.3s ease;
-          background: rgba(139, 92, 246, 0.02);
+          background: rgba(249, 115, 22, 0.02);
           cursor: pointer;
         }
 
         .drag-zone.active {
-          background: rgba(139, 92, 246, 0.1);
-          border-color: #7C3AED;
+          background: rgba(249, 115, 22, 0.1);
+          border-color: #EA580C;
         }
 
         .file-list {
@@ -793,13 +793,13 @@ export default function BarcodeExtractor() {
         }
 
         .file-item.selected {
-          border-color: #8B5CF6;
+          border-color: #F97316;
           background: #F5F3FF;
         }
 
         .file-item:hover {
-          border-color: #8B5CF6;
-          box-shadow: 0 8px 16px rgba(139, 92, 246, 0.15);
+          border-color: #F97316;
+          box-shadow: 0 8px 16px rgba(249, 115, 22, 0.15);
         }
 
         .file-checkbox {
@@ -809,7 +809,7 @@ export default function BarcodeExtractor() {
           width: 20px;
           height: 20px;
           cursor: pointer;
-          accent-color: #8B5CF6;
+          accent-color: #F97316;
         }
 
         .file-info {
@@ -867,7 +867,7 @@ export default function BarcodeExtractor() {
                 gap: '16px',
                 marginBottom: '32px'
               }}>
-                <ScanBarcode size={40} color="#8B5CF6" />
+                <ScanBarcode size={40} color="#F97316" />
                 <div>
                   <h2 style={{ margin: 0, fontSize: '32px', fontWeight: 800, color: '#1E293B' }}>
                     Barcode Extractor
@@ -1037,7 +1037,7 @@ export default function BarcodeExtractor() {
                       alignItems: 'center'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                        <Search size={20} color="#8B5CF6" />
+                        <Search size={20} color="#F97316" />
                         <input
                           type="text"
                           className="input-modern"
@@ -1074,7 +1074,7 @@ export default function BarcodeExtractor() {
                                     width: '20px',
                                     height: '20px',
                                     cursor: 'pointer',
-                                    accentColor: '#8B5CF6'
+                                    accentColor: '#F97316'
                                   }}
                                 />
                               </th>
@@ -1100,13 +1100,13 @@ export default function BarcodeExtractor() {
                                       width: '20px',
                                       height: '20px',
                                       cursor: 'pointer',
-                                      accentColor: '#8B5CF6'
+                                      accentColor: '#F97316'
                                     }}
                                   />
                                 </td>
                                 <td style={{ fontWeight: 600, fontSize: '15px' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <Image size={18} color="#8B5CF6" />
+                                    <Image size={18} color="#F97316" />
                                     {file.filename}
                                   </div>
                                 </td>
@@ -1204,7 +1204,7 @@ export default function BarcodeExtractor() {
                       onChange={handleFileInput}
                       style={{ display: 'none' }}
                     />
-                    <Upload size={40} color="#8B5CF6" style={{ margin: '0 auto 16px' }} />
+                    <Upload size={40} color="#F97316" style={{ margin: '0 auto 16px' }} />
                     <div style={{ fontSize: '16px', fontWeight: 600, color: '#1E293B', marginBottom: '8px' }}>
                       {dragActive ? 'Drop files here' : 'Drag files here or click to browse'}
                     </div>
@@ -1282,7 +1282,7 @@ export default function BarcodeExtractor() {
                             onChange={() => toggleSelectFile(file.file_id)}
                           />
                           <div className="file-info">
-                            <Image size={24} color="#8B5CF6" style={{ marginBottom: '8px' }} />
+                            <Image size={24} color="#F97316" style={{ marginBottom: '8px' }} />
                             <div className="file-name">{file.filename}</div>
                             <div className="file-size">{(file.size / 1024).toFixed(1)} KB</div>
                           </div>
@@ -1354,7 +1354,7 @@ export default function BarcodeExtractor() {
                 marginBottom: '32px'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <Activity size={32} color="#8B5CF6" />
+                  <Activity size={32} color="#F97316" />
                   <div>
                     <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#1E293B' }}>
                       Processing Barcodes
@@ -1418,7 +1418,7 @@ export default function BarcodeExtractor() {
                   animate={{ width: `${jobStatus?.progress?.progress_percent || 0}%` }}
                   transition={{ duration: 0.5, ease: 'easeOut' }}
                   style={{
-                    background: 'linear-gradient(90deg, #8B5CF6, #EC4899, #8B5CF6)',
+                    background: 'linear-gradient(90deg, #F97316, #EC4899, #F97316)',
                     backgroundSize: '200% 100%',
                     animation: jobStatus?.status === 'running' ? 'gradient 3s ease infinite' : 'none',
                     height: '100%',
@@ -1438,7 +1438,7 @@ export default function BarcodeExtractor() {
               {/* Stats Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '20px', marginBottom: '32px' }}>
                 {[
-                  { label: 'Total', value: jobStatus?.progress?.total_files || 0, color: '#8B5CF6', icon: Database },
+                  { label: 'Total', value: jobStatus?.progress?.total_files || 0, color: '#F97316', icon: Database },
                   { label: 'Processed', value: jobStatus?.progress?.processed_files || 0, color: '#3B82F6', icon: Activity },
                   { label: 'Success', value: jobStatus?.progress?.successful_files || 0, color: '#10B981', icon: CheckCircle2 },
                   { label: 'Failed', value: jobStatus?.progress?.failed_files || 0, color: '#EF4444', icon: XCircle },
@@ -1531,7 +1531,7 @@ export default function BarcodeExtractor() {
                       alignItems: 'center',
                       gap: '12px'
                     }}>
-                      <BarChart3 size={24} color="#8B5CF6" />
+                      <BarChart3 size={24} color="#F97316" />
                       Extracted Barcodes
                     </h3>
                     <div style={{ display: 'flex', gap: '12px' }}>
@@ -1584,7 +1584,7 @@ export default function BarcodeExtractor() {
                               alignItems: 'center',
                               gap: '8px'
                             }}>
-                              <Image size={16} color="#8B5CF6" />
+                              <Image size={16} color="#F97316" />
                               {result.filename || 'Unknown File'}
                             </div>
                             <div style={{
@@ -1650,7 +1650,7 @@ export default function BarcodeExtractor() {
                                   cursor: 'pointer',
                                   fontSize: '12px',
                                   fontWeight: 600,
-                                  color: '#8B5CF6',
+                                  color: '#F97316',
                                   padding: '8px',
                                   borderRadius: '6px',
                                   background: '#F5F3FF'

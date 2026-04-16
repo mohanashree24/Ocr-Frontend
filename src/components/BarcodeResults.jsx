@@ -149,31 +149,26 @@ function BarcodeResults() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         style={{
-          background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
-          padding: '48px 32px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px',
           marginBottom: '32px',
-          borderRadius: '0 0 32px 32px',
-          boxShadow: '0 20px 60px rgba(139, 92, 246, 0.3)',
-          position: 'relative',
-          overflow: 'hidden'
         }}
       >
-        <div style={{ position: 'absolute', top: '-50%', right: '-10%', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)', borderRadius: '50%' }} />
-        
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <motion.div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}>
-            <Package size={40} style={{ color: 'white' }} />
-            <h1 style={{ margin: 0, fontSize: '36px', fontWeight: 900, color: 'white', letterSpacing: '-0.5px' }}>
-              Barcode Extraction Results
-            </h1>
-          </motion.div>
-          <p style={{ margin: 0, color: 'rgba(255,255,255,0.9)', fontSize: '16px', fontWeight: 500 }}>
+        <div style={{ padding: '12px', background: 'rgba(249, 115, 22, 0.1)', borderRadius: '16px' }}>
+          <Package size={28} color="#F97316" />
+        </div>
+        <div>
+          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.5px' }}>
+            Barcode Extraction Results
+          </h1>
+          <p style={{ margin: '4px 0 0 0', color: '#64748B', fontSize: '14px', fontWeight: 500 }}>
             View and manage extracted barcode data with detailed analytics
           </p>
         </div>
       </motion.div>
 
-      <div style={{ padding: '0 32px', maxWidth: '1600px', margin: '0 auto' }}>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '24px' }}>
         {/* Stats Cards */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -186,7 +181,7 @@ function BarcodeResults() {
           }}
         >
           {[
-            { icon: Package, label: 'Total Records', value: stats.total, color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.1)' },
+            { icon: Package, label: 'Total Records', value: stats.total, color: '#F97316', bg: 'rgba(249, 115, 22, 0.1)' },
             { icon: CheckCircle, label: 'Success', value: stats.success, color: '#10B981', bg: 'rgba(16, 185, 129, 0.1)' },
             { icon: XCircle, label: 'Failed', value: stats.failed, color: '#EF4444', bg: 'rgba(239, 68, 68, 0.1)' },
             { icon: BarChart3, label: 'Total Barcodes', value: stats.totalBarcodes, color: '#3B82F6', bg: 'rgba(59, 130, 246, 0.1)' },
@@ -243,7 +238,7 @@ function BarcodeResults() {
         >
           {/* Search */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '250px', position: 'relative' }}>
-            <Search size={18} style={{ position: 'absolute', left: '14px', color: '#8B5CF6' }} />
+            <Search size={18} style={{ position: 'absolute', left: '14px', color: '#F97316' }} />
             <input
               type="text"
               placeholder="Search by barcode, filename, or job ID..."
@@ -251,7 +246,7 @@ function BarcodeResults() {
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
                 width: '100%',
-                background: '#000000ff',
+                background: '#ffffffff',
                 padding: '10px 10px 10px 44px',
                 borderRadius: '10px',
                 border: '2px solid #E5E7EB',
@@ -296,7 +291,7 @@ function BarcodeResults() {
                 padding: '10px 18px',
                 borderRadius: '10px',
                 border: 'none',
-                background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
                 color: 'white',
                 fontWeight: 600,
                 fontSize: '14px',
@@ -319,9 +314,9 @@ function BarcodeResults() {
                 gap: '8px',
                 padding: '10px 18px',
                 borderRadius: '10px',
-                border: '2px solid #8B5CF6',
+                border: '2px solid #F97316',
                 background: 'white',
-                color: '#8B5CF6',
+                color: '#F97316',
                 fontWeight: 600,
                 fontSize: '14px',
                 cursor: filteredResults.length === 0 ? 'not-allowed' : 'pointer',
@@ -350,7 +345,7 @@ function BarcodeResults() {
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 20px', gap: '16px' }}>
               <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
-                <Loader2 size={48} style={{ color: '#8B5CF6' }} />
+                <Loader2 size={48} style={{ color: '#F97316' }} />
               </motion.div>
               <p style={{ color: '#64748B', fontSize: '16px', fontWeight: 600 }}>
                 Loading barcode data...
@@ -370,7 +365,7 @@ function BarcodeResults() {
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead>
-                  <tr style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)', color: 'white' }}>
+                  <tr style={{ background: '#1E293B', color: 'white' }}>
                     <th style={{ padding: '14px 12px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>ID</th>
                     <th style={{ padding: '14px 12px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Filename</th>
                     <th style={{ padding: '14px 12px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Barcode</th>
@@ -397,7 +392,7 @@ function BarcodeResults() {
                           transition={{ delay: index * 0.02 }}
                           style={{
                             borderBottom: '1px solid #F1F5F9',
-                            background: isExpanded ? 'rgba(139, 92, 246, 0.05)' : index % 2 === 0 ? 'white' : '#FAFBFC',
+                            background: isExpanded ? 'rgba(249, 115, 22, 0.05)' : index % 2 === 0 ? 'white' : '#FAFBFC',
                             transition: 'all 0.2s'
                           }}
                         >
@@ -407,7 +402,7 @@ function BarcodeResults() {
                           <td style={{ padding: '12px', color: '#1E293B', fontWeight: 500, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {result.filename || 'N/A'}
                           </td>
-                          <td style={{ padding: '12px', fontFamily: 'monospace', color: '#8B5CF6', fontWeight: 600 }}>
+                          <td style={{ padding: '12px', fontFamily: 'monospace', color: '#F97316', fontWeight: 600 }}>
                             {result.barcode_data || 'N/A'}
                           </td>
                           <td style={{ padding: '12px', color: '#475569', fontWeight: 500 }}>
@@ -457,7 +452,7 @@ function BarcodeResults() {
                                 padding: '6px',
                                 borderRadius: '8px',
                                 border: 'none',
-                                background: isExpanded ? 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)' : '#F8FAFC',
+                                background: isExpanded ? 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)' : '#F8FAFC',
                                 color: isExpanded ? 'white' : '#64748B',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s'
@@ -482,7 +477,7 @@ function BarcodeResults() {
                                   {/* Image */}
                                   <div style={{ background: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', paddingBottom: '10px', borderBottom: '2px solid #F3F4F6' }}>
-                                      <ImageIcon size={18} style={{ color: '#8B5CF6' }} />
+                                      <ImageIcon size={18} style={{ color: '#F97316' }} />
                                       <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#1E293B' }}>Source Image</h4>
                                     </div>
                                     {result.image_url ? (
@@ -530,7 +525,7 @@ function BarcodeResults() {
                                                 <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>
                                                   Barcode #{idx + 1}
                                                 </div>
-                                                <div style={{ fontSize: '14px', fontFamily: 'monospace', fontWeight: 700, color: '#8B5CF6' }}>
+                                                <div style={{ fontSize: '14px', fontFamily: 'monospace', fontWeight: 700, color: '#F97316' }}>
                                                   {barcode.data}
                                                 </div>
                                               </div>
@@ -570,7 +565,7 @@ function BarcodeResults() {
                                     </div>
                                     <div>
                                       <span style={{ color: '#64748B', fontWeight: 600 }}>Tokens Used:</span>
-                                      <span style={{ marginLeft: '8px', fontWeight: 700, color: '#8B5CF6' }}>{result.tokens_used || 0}</span>
+                                      <span style={{ marginLeft: '8px', fontWeight: 700, color: '#F97316' }}>{result.tokens_used || 0}</span>
                                     </div>
                                     <div>
                                       <span style={{ color: '#64748B', fontWeight: 600 }}>Created At:</span>
@@ -632,7 +627,7 @@ function BarcodeResults() {
                   padding: '8px 16px',
                   borderRadius: '8px',
                   border: 'none',
-                  background: currentPage === 1 ? '#F1F5F9' : 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                  background: currentPage === 1 ? '#F1F5F9' : 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
                   color: currentPage === 1 ? '#CBD5E1' : 'white',
                   cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
                   fontWeight: 600,
@@ -653,7 +648,7 @@ function BarcodeResults() {
                   padding: '8px 16px',
                   borderRadius: '8px',
                   border: 'none',
-                  background: currentPage === totalPages ? '#F1F5F9' : 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                  background: currentPage === totalPages ? '#F1F5F9' : 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
                   color: currentPage === totalPages ? '#CBD5E1' : 'white',
                   cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
                   fontWeight: 600,

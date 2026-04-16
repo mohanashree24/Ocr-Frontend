@@ -70,7 +70,7 @@ function Login() {
         zIndex: 0
       }}>
         <NeuralBackground
-          color="#8B5CF6" // Purple to match your theme
+          color="#F97316" // Purple to match your theme
           trailOpacity={0.12}
           particleCount={700}
           speed={0.9}
@@ -108,11 +108,11 @@ function Login() {
               height: 80,
               margin: '0 auto 32px',
               borderRadius: 24,
-              background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+              background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 20px 60px rgba(139, 92, 246, 0.5)',
+              boxShadow: '0 20px 60px rgba(249, 115, 22, 0.5)',
               border: '3px solid rgba(255, 255, 255, 0.5)',
               position: 'relative',
               overflow: 'hidden'
@@ -137,7 +137,7 @@ function Login() {
             <h1 style={{
               fontSize: 32,
               fontWeight: 800,
-              background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+              background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               marginBottom: 12,
@@ -243,7 +243,7 @@ function Login() {
 
             {/* Login Button */}
             <motion.button
-              whileHover={{ scale: loading ? 1 : 1.02, boxShadow: loading ? 'none' : '0 20px 60px rgba(139, 92, 246, 0.4)' }}
+              whileHover={{ scale: loading ? 1 : 1.02, boxShadow: loading ? 'none' : '0 20px 60px rgba(249, 115, 22, 0.4)' }}
               whileTap={{ scale: loading ? 1 : 0.98 }}
               type="submit"
               disabled={loading}
@@ -254,7 +254,7 @@ function Login() {
                 border: 'none',
                 background: loading
                   ? 'linear-gradient(135deg, #A78BFA 0%, #9333EA 100%)'
-                  : 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                  : 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
                 color: 'white',
                 fontSize: 16,
                 fontWeight: 700,
@@ -263,7 +263,7 @@ function Login() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 12,
-                boxShadow: '0 12px 40px rgba(139, 92, 246, 0.3)',
+                boxShadow: '0 12px 40px rgba(249, 115, 22, 0.3)',
                 transition: 'all 0.3s ease',
                 opacity: loading ? 0.7 : 1
               }}

@@ -26,7 +26,7 @@ export const AuthSuccess = () => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+      background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
       position: 'relative',
       overflow: 'hidden'
     }}>

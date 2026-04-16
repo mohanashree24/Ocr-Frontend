@@ -69,7 +69,7 @@ export default function InteractiveInput({
                         fontWeight: 400
                     }}
                     onFocus={(e) => {
-                        e.target.style.borderColor = '#8B5CF6';
+                        e.target.style.borderColor = '#F97316';
                         e.target.style.backgroundColor = '#FAFAFA';
                     }}
                     onBlur={(e) => {
@@ -94,7 +94,7 @@ export default function InteractiveInput({
                                 borderTopLeftRadius: '12px',
                                 borderTopRightRadius: '12px',
                                 overflow: 'hidden',
-                                background: `radial-gradient(40px circle at ${mousePosition.x}px 0px, #8B5CF6 0%, transparent 70%)`
+                                background: `radial-gradient(40px circle at ${mousePosition.x}px 0px, #F97316 0%, transparent 70%)`
                             }}
                         />
                         {/* Bottom glow effect */}
@@ -110,7 +110,7 @@ export default function InteractiveInput({
                                 borderBottomLeftRadius: '12px',
                                 borderBottomRightRadius: '12px',
                                 overflow: 'hidden',
-                                background: `radial-gradient(40px circle at ${mousePosition.x}px 2px, #8B5CF6 0%, transparent 70%)`
+                                background: `radial-gradient(40px circle at ${mousePosition.x}px 2px, #F97316 0%, transparent 70%)`
                             }}
                         />
                         {/* Left glow effect */}
@@ -126,7 +126,7 @@ export default function InteractiveInput({
                                 borderTopLeftRadius: '12px',
                                 borderBottomLeftRadius: '12px',
                                 overflow: 'hidden',
-                                background: `radial-gradient(40px circle at 0px ${mousePosition.y}px, #8B5CF6 0%, transparent 70%)`
+                                background: `radial-gradient(40px circle at 0px ${mousePosition.y}px, #F97316 0%, transparent 70%)`
                             }}
                         />
                         {/* Right glow effect */}
@@ -142,7 +142,7 @@ export default function InteractiveInput({
                                 borderTopRightRadius: '12px',
                                 borderBottomRightRadius: '12px',
                                 overflow: 'hidden',
-                                background: `radial-gradient(40px circle at 2px ${mousePosition.y}px, #8B5CF6 0%, transparent 70%)`
+                                background: `radial-gradient(40px circle at 2px ${mousePosition.y}px, #F97316 0%, transparent 70%)`
                             }}
                         />
                     </>

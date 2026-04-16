@@ -113,7 +113,7 @@ export default function EnhancedCostDashboard() {
       toast.success(`✅ Loaded ${data?.length || 0} records`, {
         style: {
           borderRadius: '12px',
-          background: '#8B5CF6',
+          background: '#F97316',
           color: '#fff'
         }
       })
@@ -312,10 +312,10 @@ export default function EnhancedCostDashboard() {
     toast.success('📊 Data exported successfully!')
   }
 
-  const COLORS = ['#8B5CF6', '#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#EC4899']
+  const COLORS = ['#F97316', '#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#EC4899']
 
   return (
-    <div style={{ maxWidth: '1800px', margin: '0 auto', padding: '24px', background: '#F8FAFC', minHeight: '100vh' }}>
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <Toaster
         position="top-right"
         toastOptions={{ duration: 4000 }}
@@ -331,22 +331,22 @@ export default function EnhancedCostDashboard() {
           background: rgba(255, 255, 255, 0.98);
           backdrop-filter: blur(40px);
           border-radius: 24px;
-          border: 1px solid rgba(139, 92, 246, 0.1);
+          border: 1px solid rgba(249, 115, 22, 0.1);
           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.05), 0 0 1px rgba(0, 0, 0, 0.1);
           transition: all 0.3s ease;
         }
         
         .glass-card:hover {
-          box-shadow: 0 30px 90px rgba(139, 92, 246, 0.12);
+          box-shadow: 0 30px 90px rgba(249, 115, 22, 0.12);
           transform: translateY(-2px);
         }
 
         .stat-card {
-          background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+          background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
           color: white;
           padding: 24px;
           border-radius: 16px;
-          box-shadow: 0 12px 32px rgba(139, 92, 246, 0.3);
+          box-shadow: 0 12px 32px rgba(249, 115, 22, 0.3);
           position: relative;
           overflow: hidden;
         }
@@ -382,45 +382,20 @@ export default function EnhancedCostDashboard() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         style={{
-          background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
-          borderRadius: '24px',
-          padding: '48px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px',
           marginBottom: '32px',
-          position: 'relative',
-          overflow: 'hidden',
-          boxShadow: '0 20px 60px rgba(139, 92, 246, 0.3)'
         }}
       >
-        <div style={{
-          position: 'absolute',
-          top: '-50%',
-          right: '-20%',
-          width: '600px',
-          height: '600px',
-          background: 'radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%)',
-          animation: 'pulse 6s ease-in-out infinite'
-        }} />
-
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-            <BarChart3 size={32} color="white" />
-            <h1 style={{
-              margin: 0,
-              fontSize: '36px',
-              fontWeight: 800,
-              color: 'white',
-              letterSpacing: '-1px'
-            }}>
-              Cost Analytics Dashboard
-            </h1>
-          </div>
-          <p style={{
-            fontSize: '18px',
-            color: 'rgba(255,255,255,0.9)',
-            margin: 0,
-            maxWidth: '700px',
-            lineHeight: 1.6
-          }}>
+        <div style={{ padding: '12px', background: 'rgba(249, 115, 22, 0.1)', borderRadius: '16px' }}>
+          <BarChart3 size={28} color="#F97316" />
+        </div>
+        <div>
+          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.5px' }}>
+            Cost Analytics Dashboard
+          </h1>
+          <p style={{ margin: '4px 0 0 0', color: '#64748B', fontSize: '14px', fontWeight: 500 }}>
             Real-time processing metrics, cost analysis, and performance insights
           </p>
         </div>
@@ -443,8 +418,8 @@ export default function EnhancedCostDashboard() {
                 style={{
                   padding: '10px 20px',
                   borderRadius: '12px',
-                  border: dateRange === range ? '2px solid #8B5CF6' : '2px solid #E2E8F0',
-                  background: dateRange === range ? 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)' : 'white',
+                  border: dateRange === range ? '2px solid #F97316' : '2px solid #E2E8F0',
+                  background: dateRange === range ? 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)' : 'white',
                   color: dateRange === range ? 'white' : '#475569',
                   fontWeight: 600,
                   fontSize: '14px',
@@ -493,7 +468,7 @@ export default function EnhancedCostDashboard() {
                 padding: '12px 24px',
                 borderRadius: '12px',
                 border: 'none',
-                background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
                 color: 'white',
                 fontWeight: 600,
                 cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -611,15 +586,15 @@ export default function EnhancedCostDashboard() {
             {/* Daily Cost Trend */}
             <motion.div className="glass-card" style={{ padding: '32px', marginBottom: '24px' }}>
               <h3 style={{ margin: '0 0 24px 0', fontSize: '20px', fontWeight: 700, color: '#1E293B', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <TrendingUp size={24} color="#8B5CF6" />
+                <TrendingUp size={24} color="#F97316" />
                 Daily Cost Trend
               </h3>
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={chartData.dailyCosts}>
                   <defs>
                     <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#F97316" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#F97316" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
@@ -633,7 +608,7 @@ export default function EnhancedCostDashboard() {
                       padding: '12px'
                     }}
                   />
-                  <Area type="monotone" dataKey="cost" stroke="#8B5CF6" strokeWidth={3} fill="url(#costGradient)" />
+                  <Area type="monotone" dataKey="cost" stroke="#F97316" strokeWidth={3} fill="url(#costGradient)" />
                 </AreaChart>
               </ResponsiveContainer>
             </motion.div>
@@ -642,7 +617,7 @@ export default function EnhancedCostDashboard() {
               {/* Doc Type Distribution */}
               <motion.div className="glass-card" style={{ padding: '32px' }}>
                 <h3 style={{ margin: '0 0 24px 0', fontSize: '20px', fontWeight: 700, color: '#1E293B', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <PieChart size={24} color="#8B5CF6" />
+                  <PieChart size={24} color="#F97316" />
                   Document Type Distribution
                 </h3>
                 <ResponsiveContainer width="100%" height={300}>
@@ -669,7 +644,7 @@ export default function EnhancedCostDashboard() {
               {/* Method Distribution */}
               <motion.div className="glass-card" style={{ padding: '32px' }}>
                 <h3 style={{ margin: '0 0 24px 0', fontSize: '20px', fontWeight: 700, color: '#1E293B', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <Activity size={24} color="#8B5CF6" />
+                  <Activity size={24} color="#F97316" />
                   Processing Methods
                 </h3>
                 <ResponsiveContainer width="100%" height={300}>
@@ -684,7 +659,7 @@ export default function EnhancedCostDashboard() {
                         borderRadius: '12px'
                       }}
                     />
-                    <Bar dataKey="value" fill="#8B5CF6" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="value" fill="#F97316" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </motion.div>
@@ -693,7 +668,7 @@ export default function EnhancedCostDashboard() {
             {/* Hourly Activity */}
             <motion.div className="glass-card" style={{ padding: '32px' }}>
               <h3 style={{ margin: '0 0 24px 0', fontSize: '20px', fontWeight: 700, color: '#1E293B', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Clock size={24} color="#8B5CF6" />
+                <Clock size={24} color="#F97316" />
                 Hourly Processing Activity
               </h3>
               <ResponsiveContainer width="100%" height={300}>
@@ -708,7 +683,7 @@ export default function EnhancedCostDashboard() {
                       borderRadius: '12px'
                     }}
                   />
-                  <Line type="monotone" dataKey="count" stroke="#8B5CF6" strokeWidth={3} dot={{ fill: '#8B5CF6', r: 5 }} />
+                  <Line type="monotone" dataKey="count" stroke="#F97316" strokeWidth={3} dot={{ fill: '#F97316', r: 5 }} />
                 </LineChart>
               </ResponsiveContainer>
             </motion.div>
@@ -724,7 +699,7 @@ export default function EnhancedCostDashboard() {
             {/* Search Bar */}
             <motion.div className="glass-card" style={{ padding: '20px', marginBottom: '24px' }}>
               <div style={{ position: 'relative' }}>
-                <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#8B5CF6' }} />
+                <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#F97316' }} />
                 <input
                   type="text"
                   placeholder="Search by filename, student name, scholarship ID..."
@@ -741,7 +716,7 @@ export default function EnhancedCostDashboard() {
                     outline: 'none',
                     transition: 'all 0.3s'
                   }}
-                  onFocus={(e) => e.target.style.borderColor = '#8B5CF6'}
+                  onFocus={(e) => e.target.style.borderColor = '#F97316'}
                   onBlur={(e) => e.target.style.borderColor = '#E2E8F0'}
                 />
               </div>
@@ -751,8 +726,8 @@ export default function EnhancedCostDashboard() {
             <motion.div className="glass-card" style={{ overflow: 'hidden' }}>
               {isLoading ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '100px 20px', gap: '20px' }}>
-                  <Loader2 size={56} style={{ color: '#8B5CF6' }} className="spinning" />
-                  <p style={{ color: '#8B5CF6', fontSize: '18px', fontWeight: 700 }}>Loading analytics...</p>
+                  <Loader2 size={56} style={{ color: '#F97316' }} className="spinning" />
+                  <p style={{ color: '#F97316', fontSize: '18px', fontWeight: 700 }}>Loading analytics...</p>
                 </div>
               ) : filteredData.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '100px 20px', gap: '20px' }}>
@@ -778,20 +753,20 @@ export default function EnhancedCostDashboard() {
                             {formatDate(record.timestamp)}
                           </td>
                           <td style={{ padding: '18px 20px' }}>
-                            <span style={{ background: record.doc_type === 'bank' ? '#10B981' : '#8B5CF6', padding: '6px 12px', borderRadius: '8px', color: 'white', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>
+                            <span style={{ background: record.doc_type === 'bank' ? '#10B981' : '#F97316', padding: '6px 12px', borderRadius: '8px', color: 'white', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>
                               {record.doc_type || 'N/A'}
                             </span>
                           </td>
                           <td style={{ padding: '18px 20px', color: '#475569', fontSize: '13px', fontWeight: 600, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {record.filename || 'N/A'}
                           </td>
-                          <td style={{ padding: '18px 20px', color: '#8B5CF6', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>
+                          <td style={{ padding: '18px 20px', color: '#F97316', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>
                             {record.method || 'N/A'}
                           </td>
                           <td style={{ padding: '18px 20px', color: '#1E293B', fontSize: '13px', fontWeight: 700, maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {record.student_name || 'N/A'}
                           </td>
-                          <td style={{ padding: '18px 20px', color: '#8B5CF6', fontWeight: 800, fontFamily: 'monospace' }}>
+                          <td style={{ padding: '18px 20px', color: '#F97316', fontWeight: 800, fontFamily: 'monospace' }}>
                             {(record.total_tokens || 0).toLocaleString()}
                           </td>
                           <td style={{ padding: '18px 20px' }}>
@@ -800,7 +775,7 @@ export default function EnhancedCostDashboard() {
                             </span>
                           </td>
                           <td style={{ padding: '18px 20px' }}>
-  <span style={{ background: 'rgba(139, 92, 246, 0.1)', padding: '6px 12px', borderRadius: '8px', color: '#8B5CF6', fontWeight: 800, fontSize: '13px', fontFamily: 'monospace' }}>
+  <span style={{ background: 'rgba(249, 115, 22, 0.1)', padding: '6px 12px', borderRadius: '8px', color: '#F97316', fontWeight: 800, fontSize: '13px', fontFamily: 'monospace' }}>
     ₹{((record.cost_usd || 0) * USD_TO_INR).toFixed(4)}
   </span>
 </td>
@@ -823,7 +798,7 @@ export default function EnhancedCostDashboard() {
                           <td style={{ padding: '18px 20px', textAlign: 'center' }}>
                             <button
                               onClick={() => setExpandedRow(expandedRow === record.id ? null : record.id)}
-                              style={{ width: '36px', height: '36px', borderRadius: '8px', border: 'none', background: expandedRow === record.id ? '#8B5CF6' : 'rgba(139, 92, 246, 0.1)', color: expandedRow === record.id ? 'white' : '#8B5CF6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              style={{ width: '36px', height: '36px', borderRadius: '8px', border: 'none', background: expandedRow === record.id ? '#F97316' : 'rgba(249, 115, 22, 0.1)', color: expandedRow === record.id ? 'white' : '#F97316', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             >
                               <Eye size={16} />
                             </button>
@@ -846,7 +821,7 @@ export default function EnhancedCostDashboard() {
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '12px', border: 'none', background: currentPage === 1 ? '#E2E8F0' : 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)', color: currentPage === 1 ? '#94A3B8' : 'white', fontWeight: 600, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '12px', border: 'none', background: currentPage === 1 ? '#E2E8F0' : 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)', color: currentPage === 1 ? '#94A3B8' : 'white', fontWeight: 600, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
                   >
                     <ChevronLeft size={16} />
                     Previous
@@ -857,7 +832,7 @@ export default function EnhancedCostDashboard() {
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '12px', border: 'none', background: currentPage === totalPages ? '#E2E8F0' : 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)', color: currentPage === totalPages ? '#94A3B8' : 'white', fontWeight: 600, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '12px', border: 'none', background: currentPage === totalPages ? '#E2E8F0' : 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)', color: currentPage === totalPages ? '#94A3B8' : 'white', fontWeight: 600, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
                   >
                     Next
                     <ChevronRight size={16} />

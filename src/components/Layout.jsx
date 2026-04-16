@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Zap,
   Sparkles,
@@ -12,9 +13,12 @@ import {
   User,
   Settings,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Package,
   Menu,
-  X
+  X,
+  LayoutDashboard
 } from 'lucide-react'
 
 function Layout() {
@@ -25,6 +29,7 @@ function Layout() {
   })
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const menuRef = useRef(null)
 
   useEffect(() => {
@@ -42,482 +47,258 @@ function Layout() {
   const tabs = [
     { path: '/auto-extract', label: 'Auto Extractor', icon: Zap },
     { path: '/extracted-data', label: 'Extracted Data', icon: Database },
-    { path: '/cost', label: 'Cost Data', icon: DollarSign },
-    { path: '/bar', label: 'Barcode Scanner', icon: Zap },
-    { path: '/barcode-results', label: 'Barcode Results', icon: Package },
+    { path: '/cost', label: 'Cost Analytics', icon: DollarSign },
+    { path: '/bar', label: 'Barcode Scanner', icon: Package },
+    { path: '/barcode-results', label: 'Barcode Results', icon: LayoutDashboard },
   ]
 
-  const user = { name: 'authentik', email: 'root@example.com' }
-
   return (
-    <div style={{ minHeight: '100vh', background: '#FAFBFC' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-secondary)', fontFamily: 'inherit' }}>
       <style>{`
         * { box-sizing: border-box; }
         
-        @media (max-width: 1024px) {
-          .desktop-nav { display: none !important; }
-          .mobile-nav-btn { display: flex !important; }
-        }
-        
-        @media (min-width: 1025px) {
-          .desktop-nav { display: flex !important; }
-          .mobile-nav-btn { display: none !important; }
-        }
-        
-        @media (max-width: 900px) {
-          .stats-compact { display: none !important; }
-        }
-        
-        @media (max-width: 640px) {
-          .user-email { display: none !important; }
+        body { margin: 0; padding: 0; }
+
+        .sidebar {
+          width: ${isSidebarCollapsed ? '85px' : '270px'};
+          background: #ffffff;
+          border-right: 1px solid #E2E8F0;
+          display: flex;
+          flex-direction: column;
+          position: fixed;
+          top: 0;
+          bottom: 0;
+          left: 0;
+          z-index: 50;
+          transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s ease;
         }
 
-        .nav-scroll::-webkit-scrollbar { display: none; }
+        .main-content {
+          flex: 1;
+          margin-left: ${isSidebarCollapsed ? '85px' : '270px'};
+          display: flex;
+          flex-direction: column;
+          min-height: 100vh;
+          transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          overflow-x: hidden;
+        }
+
+        @media (max-width: 1024px) {
+          .sidebar {
+            transform: translateX(-100%);
+          }
+          .sidebar.open {
+            transform: translateX(0);
+          }
+          .main-content {
+            margin-left: 0;
+          }
+          .mobile-menu-btn { display: flex !important; }
+          .mobile-overlay {
+            display: block !important;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(4px);
+            z-index: 40;
+          }
+        }
+        
+        @media (max-width: 768px) {
+           .stats-banner { display: none !important; }
+        }
+
+        .nav-link {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 16px;
+          margin: 4px 16px;
+          border-radius: 12px;
+          color: #64748B;
+          font-weight: 500;
+          font-size: 14px;
+          text-decoration: none;
+          transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+          background: #F1F5F9;
+          color: #0F172A;
+        }
+
+        .nav-link.active {
+          background: linear-gradient(135deg, #EFECFF 0%, #F5F3FF 100%);
+          color: #EA580C;
+          font-weight: 600;
+          box-shadow: inset 2px 0 0 #EA580C;
+        }
+
+        .user-menu-btn {
+          width: 100%;
+          background: transparent;
+          border: none;
+          padding: 12px 16px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          cursor: pointer;
+          border-top: 1px solid #E2E8F0;
+          transition: background 0.2s;
+        }
+        .user-menu-btn:hover {
+          background: #F8FAFC;
+        }
       `}</style>
 
-      {/* Header */}
-      <header style={{
-        background: 'rgba(255, 255, 255, 0.98)',
-        backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
-        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.04)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100
-      }}>
-        <div style={{
-          maxWidth: '1600px',
-          margin: '0 auto',
-          padding: '0 16px'
-        }}>
-          <div style={{
+      {/* Mobile Overlay */}
+      {showMobileMenu && (
+        <div className="mobile-overlay" onClick={() => setShowMobileMenu(false)}></div>
+      )}
+
+      {/* Sidebar */}
+      <aside className={`sidebar ${showMobileMenu ? 'open' : ''}`}>
+        {/* Toggle Button for Desktop */}
+        <button 
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className="sidebar-toggle"
+          style={{
+            position: 'absolute',
+            right: '-14px',
+            top: '32px',
+            background: 'white',
+            border: '2px solid #E2E8F0',
+            borderRadius: '50%',
+            width: '28px',
+            height: '28px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '12px 0',
-            gap: '12px'
+            justifyContent: 'center',
+            cursor: 'pointer',
+            zIndex: 100,
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            color: '#64748B',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.1)';
+            e.currentTarget.style.color = '#F97316';
+            e.currentTarget.style.borderColor = '#F97316';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.color = '#64748B';
+            e.currentTarget.style.borderColor = '#E2E8F0';
+          }}
+        >
+          {isSidebarCollapsed ? <ChevronRight size={16} strokeWidth={2.5} /> : <ChevronLeft size={16} strokeWidth={2.5} />}
+        </button>
+
+        {/* Logo Area */}
+        <div style={{ padding: '24px 20px', display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
+          <div style={{
+            width: 40, height: 40, minWidth: 40, borderRadius: 12,
+            background: 'linear-gradient(135deg, #F97316 0%, #C2410C 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 8px 16px rgba(249, 115, 22, 0.25)'
           }}>
-            {/* Logo */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              minWidth: 'fit-content'
-            }}>
-              <div style={{
-                width: 42,
-                height: 42,
-                borderRadius: 12,
-                background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 16px rgba(139, 92, 246, 0.3)'
-              }}>
-                <Sparkles size={20} color="white" strokeWidth={2.5} />
-              </div>
-              <div>
-                <h1 style={{
-                  margin: 0,
-                  fontSize: '18px',
-                  fontWeight: 800,
-                  background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  lineHeight: 1
-                }}>
-                  TeamEverest
-                </h1>
-                <p style={{
-                  fontSize: '8px',
-                  color: '#64748B',
-                  margin: 0,
-                  marginTop: 2,
-                  letterSpacing: '1.2px',
-                  fontWeight: 700,
-                  textTransform: 'uppercase'
-                }}>
-                  AI DOCUMENT INTELLIGENCE
-                </p>
-              </div>
-            </div>
-
-            {/* Desktop Navigation */}
-            <nav className="desktop-nav" style={{
-              display: 'flex',
-              gap: '6px',
-              background: '#F1F5F9',
-              padding: '5px',
-              borderRadius: '12px',
-              boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.06)',
-              flex: '1 1 auto',
-              maxWidth: '700px',
-              margin: '0 auto'
-            }}>
-              {tabs.map((tab) => {
-                const Icon = tab.icon
-                return (
-                  <NavLink
-                    key={tab.path}
-                    to={tab.path}
-                    style={({ isActive }) => ({
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      background: isActive
-                        ? 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)'
-                        : 'transparent',
-                      color: isActive ? 'white' : '#475569',
-                      fontWeight: 600,
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      textDecoration: 'none',
-                      transition: 'all 0.2s',
-                      boxShadow: isActive ? '0 4px 12px rgba(139, 92, 246, 0.3)' : 'none',
-                      whiteSpace: 'nowrap',
-                      border: 'none'
-                    })}
-                  >
-                    <Icon size={14} />
-                    {tab.label}
-                  </NavLink>
-                )
-              })}
-            </nav>
-
-            {/* Mobile Menu Button */}
-            <button 
-              className="mobile-nav-btn"
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-              style={{
-                display: 'none',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 40,
-                height: 40,
-                borderRadius: 10,
-                background: '#F1F5F9',
-                border: 'none',
-                cursor: 'pointer',
-                color: '#8B5CF6'
-              }}
-            >
-              {showMobileMenu ? <X size={20} /> : <Menu size={20} />}
-            </button>
-
-            {/* Stats + User */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              minWidth: 'fit-content'
-            }}>
-              {/* Compact Stats */}
-              <div className="stats-compact" style={{
-                display: 'flex',
-                gap: '10px',
-                padding: '6px 12px',
-                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(124, 58, 237, 0.08) 100%)',
-                borderRadius: '10px',
-                border: '1px solid rgba(139, 92, 246, 0.15)'
-              }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#8B5CF6', lineHeight: 1 }}>
-                    {stats.processed.toLocaleString()}
-                  </div>
-                  <div style={{ fontSize: '8px', color: '#64748B', marginTop: 2, fontWeight: 600 }}>
-                    PROCESSED
-                  </div>
-                </div>
-                <div style={{ width: '1px', background: 'rgba(139, 92, 246, 0.2)' }} />
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#10B981', lineHeight: 1 }}>
-                    {stats.success.toFixed(1)}%
-                  </div>
-                  <div style={{ fontSize: '8px', color: '#64748B', marginTop: 2, fontWeight: 600 }}>
-                    SUCCESS
-                  </div>
-                </div>
-              </div>
-
-              {/* User Menu */}
-              <div style={{ position: 'relative' }} ref={menuRef}>
-                <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '6px 10px',
-                    borderRadius: '10px',
-                    border: '2px solid rgba(139, 92, 246, 0.2)',
-                    background: showUserMenu
-                      ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(124, 58, 237, 0.15) 100%)'
-                      : 'linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(124, 58, 237, 0.08) 100%)',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s'
-                  }}
-                >
-                  <div style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontWeight: 700,
-                    fontSize: '13px',
-                    boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
-                  }}>
-                    A
-                  </div>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#1E293B', lineHeight: 1 }}>
-                      {user.name}
-                    </div>
-                    <div className="user-email" style={{ fontSize: '9px', color: '#64748B', marginTop: 2 }}>
-                      {user.email}
-                    </div>
-                  </div>
-                  <ChevronDown size={14} color="#8B5CF6" style={{
-                    transform: showUserMenu ? 'rotate(180deg)' : 'rotate(0)',
-                    transition: 'transform 0.3s'
-                  }} />
-                </button>
-
-                {/* User Dropdown */}
-                {showUserMenu && (
-                  <div style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 8px)',
-                    right: 0,
-                    background: 'white',
-                    borderRadius: '12px',
-                    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.2)',
-                    minWidth: '200px',
-                    overflow: 'hidden',
-                    zIndex: 1000
-                  }}>
-                    <div style={{
-                      padding: '14px',
-                      borderBottom: '1px solid #F1F5F9',
-                      background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(124, 58, 237, 0.05) 100%)'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: '50%',
-                          background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'white',
-                          fontWeight: 700,
-                          fontSize: '14px'
-                        }}>
-                          A
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B' }}>
-                            {user.name}
-                          </div>
-                          <div style={{ fontSize: '10px', color: '#64748B' }}>
-                            {user.email}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ padding: '6px' }}>
-                      {[
-                        { icon: User, label: 'View Profile' },
-                        { icon: Settings, label: 'Settings' }
-                      ].map((item, i) => (
-                        <button key={i} style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          border: 'none',
-                          background: 'transparent',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          fontWeight: 500,
-                          color: '#475569',
-                          borderRadius: '8px',
-                          textAlign: 'left',
-                          transition: 'background 0.2s'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = '#F8FAFC'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                        >
-                          <item.icon size={15} />
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div style={{ height: '1px', background: '#F1F5F9', margin: '4px 0' }} />
-
-                    <div style={{ padding: '6px' }}>
-                      <button style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        border: 'none',
-                        background: 'transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        cursor: 'pointer',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        color: '#DC2626',
-                        borderRadius: '8px',
-                        textAlign: 'left',
-                        transition: 'background 0.2s'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <LogOut size={15} />
-                        Sign Out
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            <Sparkles size={20} color="white" strokeWidth={2.5} />
           </div>
-
-          {/* Mobile Navigation Menu */}
-          {showMobileMenu && (
-            <div style={{
-              padding: '12px 0',
-              borderTop: '1px solid #F1F5F9',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px'
-            }}>
-              {tabs.map((tab) => {
-                const Icon = tab.icon
-                return (
-                  <NavLink
-                    key={tab.path}
-                    to={tab.path}
-                    onClick={() => setShowMobileMenu(false)}
-                    style={({ isActive }) => ({
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      padding: '12px 16px',
-                      borderRadius: '10px',
-                      background: isActive
-                        ? 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)'
-                        : '#F8FAFC',
-                      color: isActive ? 'white' : '#475569',
-                      fontWeight: 600,
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      textDecoration: 'none',
-                      transition: 'all 0.2s',
-                      boxShadow: isActive ? '0 4px 12px rgba(139, 92, 246, 0.3)' : 'none'
-                    })}
-                  >
-                    <Icon size={16} />
-                    {tab.label}
-                  </NavLink>
-                )
-              })}
-            </div>
+          {!isSidebarCollapsed && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ overflow: 'hidden' }}>
+              <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.5px', whiteSpace: 'nowrap' }}>
+                TeamEverest
+              </h1>
+              <p style={{ margin: 0, fontSize: '10px', color: '#64748B', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                Intelligence Hub
+              </p>
+            </motion.div>
           )}
         </div>
-      </header>
 
-      {/* Feature Banner */}
-      <div style={{
-        background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
-        padding: '14px 0',
-        boxShadow: '0 4px 24px rgba(139, 92, 246, 0.3)'
-      }}>
-        <div style={{
-          maxWidth: '1600px',
-          margin: '0 auto',
-          padding: '0 16px'
-        }}>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-            gap: '16px'
-          }}>
-            {[
-              { icon: Zap, label: '3x Faster', value: 'Streaming Mode' },
-              { icon: Shield, label: '99.9% Accurate', value: 'AI-Powered' },
-              { icon: TrendingUp, label: '80% Cost Cut', value: 'Smart Tokens' },
-              { icon: Clock, label: `${stats.avgTime.toFixed(1)}s Avg`, value: 'Real-time' }
-            ].map((feature, i) => (
-              <div
-                key={i}
+        {/* Navigation */}
+        <nav style={{ flex: 1, overflowY: 'auto', padding: '12px 0', display: 'flex', flexDirection: 'column', gap: '4px', overflowX: 'hidden' }}>
+          {!isSidebarCollapsed && (
+            <div style={{ padding: '0 20px 8px', fontSize: '11px', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
+              Main Menu
+            </div>
+          )}
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            return (
+              <NavLink key={tab.path} to={tab.path} onClick={() => setShowMobileMenu(false)}
+                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  color: 'white'
+                  justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                  padding: isSidebarCollapsed ? '12px' : '12px 16px',
+                  margin: isSidebarCollapsed ? '4px 12px' : '4px 16px'
                 }}
+                title={isSidebarCollapsed ? tab.label : ''}
               >
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  background: 'rgba(255, 255, 255, 0.25)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backdropFilter: 'blur(10px)',
-                  flexShrink: 0
-                }}>
-                  <feature.icon size={18} />
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    lineHeight: 1,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis'
-                  }}>
-                    {feature.label}
-                  </div>
-                  <div style={{
-                    fontSize: '10px',
-                    opacity: 0.9,
-                    marginTop: '3px',
-                    fontWeight: 500
-                  }}>
-                    {feature.value}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+                <Icon size={18} strokeWidth={2} style={{ minWidth: '18px' }} />
+                {!isSidebarCollapsed && <span style={{ whiteSpace: 'nowrap' }}>{tab.label}</span>}
+              </NavLink>
+            )
+          })}
+        </nav>
 
-      {/* Main Content */}
-      <main style={{
-        padding: '32px 16px',
-        maxWidth: '1600px',
-        margin: '0 auto',
-        minHeight: 'calc(100vh - 260px)'
-      }}>
-        <Outlet />
-      </main>
+        
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="main-content">
+        {/* Top Header */}
+        <header style={{
+          background: 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid #E2E8F0',
+          position: 'sticky',
+          top: 0,
+          zIndex: 30,
+          padding: '12px 24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          {/* Mobile menu toggle */}
+          <button className="mobile-menu-btn" onClick={() => setShowMobileMenu(true)} style={{
+            display: 'none', alignItems: 'center', justifyContent: 'center',
+            width: 40, height: 40, borderRadius: 10, background: '#F1F5F9', border: 'none', cursor: 'pointer', color: '#475569'
+          }}>
+            <Menu size={20} />
+          </button>
+          
+          <div style={{ flex: 1 }}></div>
+
+          {/* Top Right Stats Banner */}
+          <div className="stats-banner" style={{ display: 'flex', gap: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}>
+                <Shield size={16} />
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Success Rate</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>{stats.success.toFixed(1)}%</div>
+              </div>
+            </div>
+            <div style={{ width: 1, background: '#E2E8F0' }}></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F97316' }}>
+                <Clock size={16} />
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Avg Time</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>{stats.avgTime.toFixed(1)}s</div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Dynamic Page Content */}
+        <main style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto', width: '100%', overflowX: 'hidden' }}>
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }
