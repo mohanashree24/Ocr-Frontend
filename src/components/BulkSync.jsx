@@ -193,28 +193,28 @@ export default function BulkSync({ selectedRecords = [] }) {
         )}
         
         <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={() => setShowZohoModal(true)}
           disabled={isSyncing || (Array.isArray(selectedRecords) ? selectedRecords.length === 0 : Array.from(selectedRecords || []).length === 0)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          padding: '16px 32px',
-          borderRadius: '12px',
-          border: 'none',
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '16px 32px',
+            borderRadius: '12px',
+            border: 'none',
             background: isSyncing 
               ? 'linear-gradient(135deg, #94A3B8 0%, #64748B 100%)'
               : 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-          color: 'white',
-          fontWeight: 700,
-          fontSize: '16px',
-          cursor: isSyncing ? 'not-allowed' : 'pointer',
-          boxShadow: '0 8px 24px rgba(249, 115, 22, 0.4)',
-          transition: 'all 0.3s'
-        }}
-      >
+            color: 'white',
+            fontWeight: 700,
+            fontSize: '16px',
+            cursor: isSyncing ? 'not-allowed' : 'pointer',
+            boxShadow: '0 8px 24px rgba(249, 115, 22, 0.4)',
+            transition: 'all 0.3s'
+          }}
+        >
           {isSyncing ? (
             <>
               <Loader2 size={20} className="spin" />

@@ -106,8 +106,9 @@ export default function ZohoConfigModal({
   useEffect(() => {
     document.body.style.overflow = isOpen ? 'hidden' : ''
     if (isOpen) {
+      // Reset state when modal opens
       setStep(1)
-      setConfig({ owner_name: '', app_name: '', form_name: '', report_name: '' })
+      setConfig({ owner_name: '', app_name: '', form_name: '' })
       setFieldMapping({})
       setZohoFields([])
       setPushResult(null)
@@ -190,6 +191,67 @@ export default function ZohoConfigModal({
     } finally {
       setIsPushing(false)
     }
+  }
+
+  const handlePushToZoho = async () => {
+    // Validate required mappings
+    const requiredFields = sourceFields.filter(f => f.required)
+    const missingMappings = requiredFields.filter(f => !fieldMapping[f.key])
+    
+    if (missingMappings.length > 0) {
+      toast.error(`Please map required fields: ${missingMappings.map(f => f.label).join(', ')}`)
+      return
+    }
+
+  setIsPushing(true)
+  setPushProgress({ current: 0, total: selectedRecords.length })
+  setStep(3)
+
+  try {
+    // Start the job (server endpoint: sync-records) with today_only param
+    const response = await fetch(`${API_BASE_URL}/zoho/sync-records?today_only=${todayOnly}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        config: config,
+        field_mapping: fieldMapping,
+        record_ids: Array.from(selectedRecords)
+      })
+    })
+
+    const result = await response.json()
+
+    if (result.success && result.details) {
+      // Server returns sync details immediately for sync-records
+      const details = result.details
+      setPushProgress({ current: details.total_records || (details.inserted || 0), total: details.total_records || (details.inserted || 0) })
+      setIsPushing(false)
+      toast.success(
+        `🎉 Successfully pushed ${details.successful || details.inserted || 0}/${details.total_records || details.inserted || 0} records!`,
+        { duration: 5000, style: { background: '#10B981', color: 'white', fontWeight: 600 } }
+      )
+      onSuccess(details)
+      setTimeout(() => onClose(), 2000)
+    } else {
+      toast.error(result.error || 'Failed to push records')
+      setIsPushing(false)
+    }
+  } catch (error) {
+    toast.error(`Error: ${error.message}`)
+    setIsPushing(false)
+  }
+}
+
+  const getValueFromPath = (obj, path) => {
+    // Helper to get nested values like "bank_data.account_number"
+    return path.split('.').reduce((current, key) => {
+      const arrayMatch = key.match(/(\w+)\[(\d+)\]/)
+      if (arrayMatch) {
+        const [, arrayKey, index] = arrayMatch
+        return current?.[arrayKey]?.[parseInt(index)]
+      }
+      return current?.[key]
+    }, obj)
   }
 
   if (!isOpen) return null
