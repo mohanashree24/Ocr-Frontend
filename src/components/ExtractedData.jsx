@@ -96,6 +96,9 @@ export default function ExtractedData() {
   // Zoho Modal state
   const [showZohoModal, setShowZohoModal] = useState(false)
 
+  // Table visibility state
+  const [isTableVisible, setIsTableVisible] = useState(true)
+
   // Report Link Filter state
   const [reportLinkFilter, setReportLinkFilter] = useState('')
   const [reportLinkOptions, setReportLinkOptions] = useState([])
@@ -103,7 +106,6 @@ export default function ExtractedData() {
   
   // Date Filter state
   const [dateFilter, setDateFilter] = useState('all') // 'all', 'today', 'yesterday', 'last7days', 'last30days'
-  const [isTableVisible, setIsTableVisible] = useState(true)
 
   useEffect(() => {
     fetchExtractedData()
@@ -182,7 +184,7 @@ export default function ExtractedData() {
 
       toast.success(`✨ Loaded ${allRecords.length.toLocaleString()} records`, {
         style: {
-          background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
+          background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
           color: 'white',
           fontWeight: 600
         }
@@ -669,15 +671,41 @@ export default function ExtractedData() {
           marginBottom: '32px',
         }}
       >
-        <div style={{ padding: '12px', background: 'rgba(249, 115, 22, 0.1)', borderRadius: '16px' }}>
-          <Database size={28} color="#F97316" />
-        </div>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.5px' }}>
-            Extracted Data Hub
-          </h1>
-          <p style={{ margin: '4px 0 0 0', color: '#64748B', fontSize: '14px', fontWeight: 500 }}>
-            Manage, search, and sync your extracted bill and bank data seamlessly.
+        {/* Animated background circles */}
+        <div style={{ position: 'absolute', top: '-50%', right: '-10%', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)', borderRadius: '50%' }} />
+        <div style={{ position: 'absolute', bottom: '-30%', left: '-5%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)', borderRadius: '50%' }} />
+
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}
+          >
+            <motion.div
+              animate={{ rotate: [0, 5, -5, 0] }}
+              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+            >
+              <Database size={40} style={{ color: 'white' }} />
+            </motion.div>
+            <h1 style={{
+              margin: 0,
+              fontSize: '36px',
+              fontWeight: 900,
+              color: 'white',
+              letterSpacing: '-0.5px'
+            }}>
+              Extracted Data Hub
+            </h1>
+          </motion.div>
+          <p style={{
+            margin: 0,
+            color: 'rgba(255,255,255,0.9)',
+            fontSize: '16px',
+            fontWeight: 500,
+            maxWidth: '600px'
+          }}>
+            Manage, search, and sync your extracted bill and bank data seamlessly
           </p>
         </div>
       </motion.div>
@@ -696,7 +724,7 @@ export default function ExtractedData() {
           }}
         >
           {[
-            { icon: FileText, label: 'Total Records', value: totalFilteredRecords, color: '#F97316', bg: 'rgba(249, 115, 22, 0.1)' },
+            { icon: FileText, label: 'Total Records', value: totalFilteredRecords, color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.1)' },
             { icon: Upload, label: 'Need to Push', value: needToPushCount, color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.1)' },
             { icon: CheckCircle, label: 'Pushed', value: pushedCount, color: '#10B981', bg: 'rgba(16, 185, 129, 0.1)' },
             { icon: Search, label: 'Selected', value: selectedRecords.size, color: '#EC4899', bg: 'rgba(236, 72, 153, 0.1)' }
@@ -732,156 +760,359 @@ export default function ExtractedData() {
         </motion.div>
 
         {/* Action Bar */}
-<motion.div
-  initial={{ opacity: 0, y: 20 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ delay: 0.2 }}
-  style={{
-    background: 'white',
-    padding: '20px 24px',
-    borderRadius: '20px',
-    marginBottom: '24px',
-    boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
-    border: '1px solid rgba(0,0,0,0.05)',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px'
-  }}
->
-  {/* Row 1: Search + Filters + Action Buttons */}
-  <div style={{
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    flexWrap: 'wrap'
-  }}>
-    {/* Search Box */}
-    <div style={{
-      position: 'relative',
-      flex: '1',
-      minWidth: '220px',
-      maxWidth: '360px'
-    }}>
-      <Search size={18} style={{
-        position: 'absolute', left: '14px', top: '50%',
-        transform: 'translateY(-50%)', color: '#F97316', zIndex: 1
-      }} />
-      <input
-        type="text"
-        placeholder="Search by student name..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        style={{
-          width: '100%',
-          padding: '10px 14px 10px 42px',
-          borderRadius: '12px',
-          border: '2px solid #E5E7EB',
-          fontSize: '14px',
-          fontWeight: 500,
-          outline: 'none',
-          background: 'white',
-          color: '#1E293B',
-          caretColor: '#F97316',
-          boxSizing: 'border-box'
-        }}
-        onFocus={(e) => {
-          e.target.style.borderColor = '#F97316'
-          e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.1)'
-        }}
-        onBlur={(e) => {
-          e.target.style.borderColor = '#E5E7EB'
-          e.target.style.boxShadow = 'none'
-        }}
-      />
-    </div>
-
-    {/* Report Link Filter */}
-    <div style={{ position: 'relative', minWidth: '180px', maxWidth: '240px' }}>
-      <Filter size={15} style={{
-        position: 'absolute', left: '11px', top: '50%',
-        transform: 'translateY(-50%)',
-        color: reportLinkFilter ? '#F97316' : '#94A3B8',
-        pointerEvents: 'none', zIndex: 1
-      }} />
-      <select
-        value={reportLinkFilter}
-        onChange={(e) => {
-          const selected = e.target.value
-          setReportLinkFilter(selected)
-          setCurrentPage(1)
-          if (selected) {
-            const matchingIds = extractedData
-              .filter(record => {
-                const isPushed = record.Push_status === true || record.Push_status === 'true' ||
-                  record.Push_status === 'pushed' || record.Push_status === 'TRUE'
-                if (activeTab === 'need_to_push' && isPushed) return false
-                if (activeTab === 'pushed' && !isPushed) return false
-                return record.report_link_name === selected
-              })
-              .map(r => r.id)
-            setSelectedRecords(new Set(matchingIds))
-          } else {
-            setSelectedRecords(new Set())
-          }
-        }}
-        style={{
-          width: '100%',
-          padding: '10px 30px 10px 32px',
-          borderRadius: '12px',
-          border: `2px solid ${reportLinkFilter ? '#F97316' : '#E5E7EB'}`,
-          fontSize: '13px', fontWeight: 500, outline: 'none',
-          background: reportLinkFilter ? 'rgba(249, 115, 22, 0.05)' : 'white',
-          color: reportLinkFilter ? '#EA580C' : '#64748B',
-          cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none'
-        }}
-        disabled={isLoadingReportLinks}
-      >
-        <option value="">{isLoadingReportLinks ? 'Loading…' : `All Reports (${reportLinkOptions.length})`}</option>
-        {reportLinkOptions.map(link => <option key={link} value={link}>{link}</option>)}
-      </select>
-      {reportLinkFilter && (
-        <button onClick={() => { setReportLinkFilter(''); setCurrentPage(1) }}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
           style={{
-            position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
-            background: '#F97316', border: 'none', borderRadius: '50%',
-            width: '16px', height: '16px', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', cursor: 'pointer', color: 'white', fontSize: '10px', fontWeight: 700, padding: 0
-          }}>✕</button>
-      )}
-    </div>
+            background: 'white',
+            padding: '24px',
+            borderRadius: '20px',
+            marginBottom: '24px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+            border: '1px solid rgba(0,0,0,0.05)'
+          }}
+        >
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '20px',
+            flexWrap: 'wrap'
+          }}>
+            {/* Left Side: Search + Quick Selection */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              flex: 1,
+              minWidth: '300px'
+            }}>
+              {/* Search Box */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                flex: 1,
+                maxWidth: '400px',
+                position: 'relative'
+              }}>
+                <Search size={20} style={{
+                  position: 'absolute',
+                  left: '16px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: '#8B5CF6',
+                  zIndex: 1
+                }} />
+                <input
+                  type="text"
+                  placeholder="Search by student name..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px 12px 48px',
+                    borderRadius: '12px',
+                    border: '2px solid #E5E7EB',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    outline: 'none',
+                    transition: 'all 0.3s',
+                    background: 'white',
+                    color: '#1E293B',
+                    caretColor: '#8B5CF6'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#8B5CF6'
+                    e.target.style.boxShadow = '0 0 0 3px rgba(139, 92, 246, 0.1)'
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#E5E7EB'
+                    e.target.style.boxShadow = 'none'
+                  }}
+                />
+              </div>
 
-    {/* Date Filter */}
-    <div style={{ position: 'relative', minWidth: '150px', maxWidth: '180px' }}>
-      <select
-        value={dateFilter}
-        onChange={(e) => { setDateFilter(e.target.value); setCurrentPage(1) }}
-        style={{
-          width: '100%',
-          padding: '10px 28px 10px 14px',
-          borderRadius: '12px',
-          border: `2px solid ${dateFilter !== 'all' ? '#10B981' : '#E5E7EB'}`,
-          fontSize: '13px', fontWeight: 600, outline: 'none',
-          background: dateFilter !== 'all' ? 'rgba(16, 185, 129, 0.05)' : 'white',
-          color: dateFilter !== 'all' ? '#059669' : '#64748B',
-          cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none'
-        }}
-      >
-        <option value="all">📅 All Dates</option>
-        <option value="today">📅 Today</option>
-        <option value="yesterday">📅 Yesterday</option>
-        <option value="last7days">📅 Last 7 Days</option>
-        <option value="last30days">📅 Last 30 Days</option>
-      </select>
-      {dateFilter !== 'all' && (
-        <button onClick={() => { setDateFilter('all'); setCurrentPage(1) }}
-          style={{
-            position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
-            background: '#10B981', border: 'none', borderRadius: '50%',
-            width: '16px', height: '16px', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', cursor: 'pointer', color: 'white', fontSize: '10px', fontWeight: 700, padding: 0
-          }}>✕</button>
-      )}
-    </div>
+              {/* Report Link Filter Dropdown */}
+              <div style={{ position: 'relative', minWidth: '200px', maxWidth: '280px' }}>
+                <Filter size={16} style={{
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: reportLinkFilter ? '#8B5CF6' : '#94A3B8',
+                  pointerEvents: 'none',
+                  zIndex: 1
+                }} />
+                <select
+                  value={reportLinkFilter}
+                  onChange={(e) => {
+                    const selected = e.target.value
+                    setReportLinkFilter(selected)
+                    setCurrentPage(1)
+
+                    if (selected) {
+                      // Auto-select all records matching the chosen report
+                      // (also respects the active push-status tab filter)
+                      const matchingIds = extractedData
+                        .filter(record => {
+                          const isPushed = record.Push_status === true ||
+                            record.Push_status === 'true' ||
+                            record.Push_status === 'pushed' ||
+                            record.Push_status === 'TRUE'
+                          if (activeTab === 'need_to_push' && isPushed) return false
+                          if (activeTab === 'pushed' && !isPushed) return false
+                          return record.report_link_name === selected
+                        })
+                        .map(r => r.id)
+
+                      setSelectedRecords(new Set(matchingIds))
+                      toast.success(`✅ Auto-selected ${matchingIds.length} records for "${selected}"`, {
+                        style: {
+                          background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                          color: 'white',
+                          fontWeight: 600
+                        }
+                      })
+                    } else {
+                      // Cleared filter — clear selection too
+                      setSelectedRecords(new Set())
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '12px 36px 12px 36px',
+                    borderRadius: '12px',
+                    border: `2px solid ${reportLinkFilter ? '#8B5CF6' : '#E5E7EB'}`,
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    outline: 'none',
+                    background: reportLinkFilter ? 'rgba(139,92,246,0.05)' : 'white',
+                    color: reportLinkFilter ? '#7C3AED' : '#64748B',
+                    cursor: 'pointer',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    transition: 'all 0.25s',
+                    boxShadow: reportLinkFilter ? '0 0 0 3px rgba(139,92,246,0.12)' : 'none'
+                  }}
+                  disabled={isLoadingReportLinks}
+                >
+                  <option value="">
+                    {isLoadingReportLinks ? 'Loading reports…' : `All Reports (${reportLinkOptions.length})`}
+                  </option>
+                  {reportLinkOptions.map((link) => (
+                    <option key={link} value={link}>{link}</option>
+                  ))}
+                </select>
+                {/* Clear filter button */}
+                {reportLinkFilter && (
+                  <button
+                    onClick={() => { setReportLinkFilter(''); setCurrentPage(1) }}
+                    title="Clear report filter"
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: '#8B5CF6',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '18px',
+                      height: '18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      color: 'white',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      lineHeight: 1,
+                      padding: 0
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Date Filter Dropdown */}
+              <div style={{ position: 'relative', minWidth: '180px', maxWidth: '200px' }}>
+                <select
+                  value={dateFilter}
+                  onChange={(e) => {
+                    const newFilter = e.target.value
+                    setDateFilter(newFilter)
+                    setCurrentPage(1)
+                    
+                    // Debug logging
+                    console.log('📅 Date filter changed to:', newFilter)
+                    if (newFilter === 'today') {
+                      const now = new Date()
+                      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+                      const todayEnd = new Date(today)
+                      todayEnd.setHours(23, 59, 59, 999)
+                      console.log('📅 Today range:', today.toISOString(), 'to', todayEnd.toISOString())
+                      
+                      // Sample check
+                      const sampleRecords = extractedData.slice(0, 5)
+                      sampleRecords.forEach(r => {
+                        const dateField = r.processed_at || r.created_at
+                        console.log('Sample record date:', r.id, dateField, new Date(dateField).toISOString())
+                      })
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    border: `2px solid ${dateFilter !== 'all' ? '#10B981' : '#E5E7EB'}`,
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    outline: 'none',
+                    background: dateFilter !== 'all' ? 'rgba(16, 185, 129, 0.05)' : 'white',
+                    color: dateFilter !== 'all' ? '#059669' : '#64748B',
+                    cursor: 'pointer',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    transition: 'all 0.25s',
+                    boxShadow: dateFilter !== 'all' ? '0 0 0 3px rgba(16, 185, 129, 0.12)' : 'none'
+                  }}
+                >
+                  <option value="all">📅 All Dates</option>
+                  <option value="today">📅 Today</option>
+                  <option value="yesterday">📅 Yesterday</option>
+                  <option value="last7days">📅 Last 7 Days</option>
+                  <option value="last30days">📅 Last 30 Days</option>
+                </select>
+                {dateFilter !== 'all' && (
+                  <button
+                    onClick={() => { setDateFilter('all'); setCurrentPage(1) }}
+                    title="Clear date filter"
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: '#10B981',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '18px',
+                      height: '18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      color: 'white',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      lineHeight: 1,
+                      padding: 0
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Quick Selection Buttons */}
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                borderLeft: '2px solid #E2E8F0',
+                paddingLeft: '16px',
+                marginLeft: '8px'
+              }}>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSelectedRecords(new Set(filteredData.slice(0, 50).map(r => r.id)))}
+                  disabled={filteredData.length === 0}
+                  style={{
+                    padding: '10px 16px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    borderRadius: '10px',
+                    border: '2px solid #E5E7EB',
+                    background: 'white',
+                    color: '#64748B',
+                    cursor: filteredData.length === 0 ? 'not-allowed' : 'pointer',
+                    opacity: filteredData.length === 0 ? 0.5 : 1,
+                    transition: 'all 0.2s'
+                  }}
+                  title="Select first 50 records"
+                >
+                  First 50
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSelectedRecords(new Set(filteredData.slice(0, 100).map(r => r.id)))}
+                  disabled={filteredData.length === 0}
+                  style={{
+                    padding: '10px 16px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    borderRadius: '10px',
+                    border: '2px solid #E5E7EB',
+                    background: 'white',
+                    color: '#64748B',
+                    cursor: filteredData.length === 0 ? 'not-allowed' : 'pointer',
+                    opacity: filteredData.length === 0 ? 0.5 : 1,
+                    transition: 'all 0.2s'
+                  }}
+                  title="Select first 100 records"
+                >
+                  First 100
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSelectedRecords(new Set(filteredData.slice(0, 200).map(r => r.id)))}
+                  disabled={filteredData.length === 0}
+                  style={{
+                    padding: '10px 16px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    borderRadius: '10px',
+                    border: '2px solid #E5E7EB',
+                    background: 'white',
+                    color: '#64748B',
+                    cursor: filteredData.length === 0 ? 'not-allowed' : 'pointer',
+                    opacity: filteredData.length === 0 ? 0.5 : 1,
+                    transition: 'all 0.2s'
+                  }}
+                  title="Select first 200 records"
+                >
+                  First 200
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={deselectAll}
+                  disabled={selectedRecords.size === 0}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '10px 16px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    borderRadius: '10px',
+                    border: '2px solid #EF4444',
+                    background: 'white',
+                    color: '#EF4444',
+                    cursor: selectedRecords.size === 0 ? 'not-allowed' : 'pointer',
+                    opacity: selectedRecords.size === 0 ? 0.5 : 1,
+                    transition: 'all 0.2s'
+                  }}
+                  title="Clear selection"
+                >
+                  <XCircle size={14} />
+                  Clear
+                </motion.button>
+              </div>
+            </div>
 
     {/* Spacer pushes action buttons to the right */}
     <div style={{ flex: 1 }} />
@@ -1424,7 +1655,7 @@ export default function ExtractedData() {
               }}>
                 <thead>
                   <tr style={{
-                    background: '#1E293B',
+                    background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
                     color: 'white'
                   }}>
                     <th style={{ padding: '18px 16px', textAlign: 'center', fontWeight: 700, width: '60px', position: 'sticky', left: 0, background: 'inherit', zIndex: 2 }}>
@@ -1440,13 +1671,231 @@ export default function ExtractedData() {
                         }}
                       />
                     </th>
-                    <th style={{ padding: '16px 12px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.5px', textTransform: 'uppercase', width: '130px', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>Record & Tracking</th>
-                    <th style={{ padding: '16px 12px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.5px', textTransform: 'uppercase', width: '180px', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>Scholar Details</th>
-                    <th style={{ padding: '16px 12px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.5px', textTransform: 'uppercase', width: '200px', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>Bank Details</th>
-                    <th style={{ padding: '16px 12px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.5px', textTransform: 'uppercase', width: '180px', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>Account Info</th>
-                    <th style={{ padding: '16px 12px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.5px', textTransform: 'uppercase', width: '160px', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>Bill Summary</th>
-                    <th style={{ padding: '16px 12px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.5px', textTransform: 'uppercase', width: '120px', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>Total Amount</th>
-                    <th style={{ padding: '16px 8px', textAlign: 'center', fontWeight: 700, fontSize: '11px', width: '60px' }}>View</th>
+                    <th style={{
+                      padding: '16px 12px',
+                      textAlign: 'left',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      width: '90px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      Record ID
+                    </th>
+                    <th style={{
+                      padding: '16px 12px',
+                      textAlign: 'left',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      width: '130px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      Scholar Name
+                    </th>
+                    <th style={{
+                      padding: '16px 12px',
+                      textAlign: 'left',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      width: '110px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      Scholar ID
+                    </th>
+                    <th style={{
+                      padding: '16px 12px',
+                      textAlign: 'left',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      width: '110px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      Tracking ID
+                    </th>
+                    <th style={{
+                      padding: '16px 12px',
+                      textAlign: 'left',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      width: '120px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      Account No
+                    </th>
+                    <th style={{
+                      padding: '16px 12px',
+                      textAlign: 'left',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      width: '130px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      Bank Name
+                    </th>
+                    <th style={{
+                      padding: '16px 12px',
+                      textAlign: 'left',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      width: '140px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      Holder Name
+                    </th>
+                    <th style={{
+                      padding: '16px 12px',
+                      textAlign: 'left',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      width: '100px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      IFSC Code
+                    </th>
+                    <th style={{
+                      padding: '16px 12px',
+                      textAlign: 'left',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      width: '130px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      Branch Name
+                    </th>
+                    <th style={{
+                      padding: '16px 12px',
+                      textAlign: 'left',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      width: '280px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      Bill Data
+                    </th>
+                    <th style={{
+                      padding: '16px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      width: '85px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      Bill1 Amt
+                    </th>
+                    <th style={{
+                      padding: '16px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      width: '85px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      Bill2 Amt
+                    </th>
+                    <th style={{
+                      padding: '16px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      width: '85px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      Bill3 Amt
+                    </th>
+                    <th style={{
+                      padding: '16px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      width: '85px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      Bill4 Amt
+                    </th>
+                    <th style={{
+                      padding: '16px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      width: '85px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      Bill5 Amt
+                    </th>
+                    <th style={{
+  padding: '16px 12px',
+  textAlign: 'right',
+  fontWeight: 700,
+  fontSize: '11px',
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase',
+  width: '85px',
+  borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+}}>
+  Bill6 Amt
+</th>
+<th style={{
+  padding: '16px 12px',
+  textAlign: 'right',
+  fontWeight: 700,
+  fontSize: '11px',
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase',
+  width: '85px',
+  borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+}}>
+  Bill7 Amt
+</th>
+<th style={{
+  padding: '16px 12px',
+  textAlign: 'right',
+  fontWeight: 700,
+  fontSize: '11px',
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase',
+  width: '85px',
+  borderRight: '1px solid rgba(255, 255, 255, 0.1)'
+}}>
+  Bill8 Amt
+</th>
+                    <th style={{
+                      padding: '16px 8px',
+                      textAlign: 'center',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      width: '50px'
+                    }}>
+                      View
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1484,9 +1933,9 @@ export default function ExtractedData() {
                             background: isSelected
                               ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.12) 0%, rgba(16, 185, 129, 0.04) 100%)'
                               : isExpanded
-                                ? 'linear-gradient(90deg, rgba(249, 115, 22, 0.12) 0%, rgba(249, 115, 22, 0.04) 100%)'
+                                ? 'linear-gradient(90deg, rgba(139, 92, 246, 0.12) 0%, rgba(139, 92, 246, 0.04) 100%)'
                                 : isHovered
-                                  ? 'linear-gradient(90deg, rgba(249, 115, 22, 0.06) 0%, transparent 100%)'
+                                  ? 'linear-gradient(90deg, rgba(139, 92, 246, 0.06) 0%, transparent 100%)'
                                   : index % 2 === 0
                                     ? 'white'
                                     : '#FAFBFC',
@@ -1510,22 +1959,162 @@ export default function ExtractedData() {
                               />
                             </motion.div>
                           </td>
-                          <td style={{ padding: '14px 12px', borderRight: '1px solid #F1F5F9' }}>
-                            <div style={{ fontWeight: 700, color: '#1E293B', fontSize: '12px' }}>
+                          <td style={{
+                            padding: '14px 12px',
+                            color: '#64748B',
+                            fontFamily: '"JetBrains Mono", monospace',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            borderRight: '1px solid #F1F5F9'
+                          }}>
+                            <span style={{
+                              background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                              padding: '4px 8px',
+                              borderRadius: '6px',
+                              color: 'white',
+                              fontSize: '10px',
+                              fontWeight: 700
+                            }}>
+                              {record.record_id}
+                            </span>
+                          </td>
+                          <td style={{
+                            padding: '14px 12px',
+                            color: '#1E293B',
+                            fontWeight: 600,
+                            fontSize: '12px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            borderRight: '1px solid #F1F5F9'
+                          }}>
+                            {billDataArray[0]?.student_name || <span style={{ color: '#CBD5E1' }}>N/A</span>}
+                          </td>
+                          <td style={{
+                            padding: '14px 12px',
+                            color: '#475569',
+                            fontFamily: '"JetBrains Mono", monospace',
+                            fontSize: '11px',
+                            fontWeight: 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            borderRight: '1px solid #F1F5F9'
+                          }}>
+                            {billDataArray[0]?.scholar_id || record.scholar_id || <span style={{ color: '#CBD5E1' }}>N/A</span>}
+                          </td>
+                          <td style={{
+                            padding: '14px 12px',
+                            color: '#8B5CF6',
+                            fontFamily: '"JetBrains Mono", monospace',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            borderRight: '1px solid #F1F5F9'
+                          }}>
+                            {record.tracking_id || record.Tracking_id || record.Tracking_ID || <span style={{ color: '#CBD5E1' }}>N/A</span>}
+                          </td>
+                          <td style={{
+                            padding: '14px 12px',
+                            color: '#475569',
+                            fontFamily: '"JetBrains Mono", monospace',
+                            fontSize: '11px',
+                            fontWeight: 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            borderRight: '1px solid #F1F5F9'
+                          }}>
+                            {bankData.account_number || <span style={{ color: '#CBD5E1' }}>N/A</span>}
+                          </td>
+                          <td style={{
+                            padding: '14px 12px',
+                            color: '#10B981',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            borderRight: '1px solid #F1F5F9'
+                          }}>
+                            {bankData.bank_name || <span style={{ color: '#CBD5E1' }}>N/A</span>}
+                          </td>
+                          <td style={{
+                            padding: '14px 12px',
+                            color: '#475569',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            borderRight: '1px solid #F1F5F9'
+                          }}>
+                            {bankData.account_holder_name || <span style={{ color: '#CBD5E1' }}>N/A</span>}
+                          </td>
+                          <td style={{
+                            padding: '14px 12px',
+                            color: '#475569',
+                            fontFamily: '"JetBrains Mono", monospace',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            borderRight: '1px solid #F1F5F9'
+                          }}>
+                            {bankData.ifsc_code || <span style={{ color: '#CBD5E1' }}>N/A</span>}
+                          </td>
+                          <td style={{
+                            padding: '14px 12px',
+                            color: '#475569',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            borderRight: '1px solid #F1F5F9'
+                          }}>
+                            {bankData.branch_name || <span style={{ color: '#CBD5E1' }}>N/A</span>}
+                          </td>
+                          <td style={{
+                            padding: '14px 12px',
+                            color: '#334155',
+                            fontSize: '11px',
+                            lineHeight: '1.5',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            borderRight: '1px solid #F1F5F9',
+                            fontWeight: 500
+                          }}>
+                            {formatBillDataText(billDataArray)}
+                          </td>
+                          <td style={{
+                            padding: '14px 12px',
+                            color: billDataArray[0]?.amount ? '#8B5CF6' : '#CBD5E1',
+                            fontWeight: 700,
+                            textAlign: 'right',
+                            fontFamily: '"JetBrains Mono", monospace',
+                            fontSize: '12px',
+                            borderRight: '1px solid #F1F5F9'
+                          }}>
+                            {billDataArray[0]?.amount ? (
                               <span style={{
-                                background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
+                                background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
                                 padding: '4px 8px',
                                 borderRadius: '6px',
                                 color: 'white',
-                                fontSize: '10px',
+                                fontSize: '12px',
                                 display: 'inline-block'
                               }}>
-                                {record.record_id}
+                                ₹{billDataArray[0].amount}
                               </span>
-                            </div>
-                            <div style={{ fontSize: '11px', color: '#F97316', marginTop: '6px', fontWeight: 600, fontFamily: '"JetBrains Mono", monospace' }}>
-                              {record.tracking_id || record.Tracking_id || record.Tracking_ID || 'N/A'}
-                            </div>
+                            ) : 'N/A'}
                           </td>
                           <td style={{ padding: '14px 12px', borderRight: '1px solid #F1F5F9' }}>
                             <div style={{ fontWeight: 600, color: '#1E293B', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

@@ -137,8 +137,8 @@ export default function BulkSync({ selectedRecords = [] }) {
           cursor: 'pointer',
           padding: '12px 16px',
           borderRadius: '8px',
-          background: todayOnly ? 'rgba(249, 115, 22, 0.1)' : 'rgba(100, 116, 139, 0.05)',
-          border: `2px solid ${todayOnly ? '#F97316' : '#E2E8F0'}`,
+          background: todayOnly ? 'rgba(139, 92, 246, 0.1)' : 'rgba(100, 116, 139, 0.05)',
+          border: `2px solid ${todayOnly ? '#8B5CF6' : '#E2E8F0'}`,
           transition: 'all 0.2s'
         }}>
           <input 
@@ -147,7 +147,7 @@ export default function BulkSync({ selectedRecords = [] }) {
             onChange={(e) => setTodayOnly(e.target.checked)}
             style={{ width: '18px', height: '18px', cursor: 'pointer' }}
           />
-          <span style={{ fontWeight: 600, color: todayOnly ? '#F97316' : '#64748B' }}>
+          <span style={{ fontWeight: 600, color: todayOnly ? '#8B5CF6' : '#64748B' }}>
             📅 Today's Data Only
           </span>
         </label>
@@ -193,28 +193,28 @@ export default function BulkSync({ selectedRecords = [] }) {
         )}
         
         <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
           onClick={() => setShowZohoModal(true)}
           disabled={isSyncing || (Array.isArray(selectedRecords) ? selectedRecords.length === 0 : Array.from(selectedRecords || []).length === 0)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '16px 32px',
-            borderRadius: '12px',
-            border: 'none',
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '16px 32px',
+          borderRadius: '12px',
+          border: 'none',
             background: isSyncing 
               ? 'linear-gradient(135deg, #94A3B8 0%, #64748B 100%)'
               : 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-            color: 'white',
-            fontWeight: 700,
-            fontSize: '16px',
-            cursor: isSyncing ? 'not-allowed' : 'pointer',
-            boxShadow: '0 8px 24px rgba(249, 115, 22, 0.4)',
-            transition: 'all 0.3s'
-          }}
-        >
+          color: 'white',
+          fontWeight: 700,
+          fontSize: '16px',
+          cursor: isSyncing ? 'not-allowed' : 'pointer',
+          boxShadow: '0 8px 24px rgba(139, 92, 246, 0.4)',
+          transition: 'all 0.3s'
+        }}
+      >
           {isSyncing ? (
             <>
               <Loader2 size={20} className="spin" />
@@ -242,12 +242,12 @@ export default function BulkSync({ selectedRecords = [] }) {
             border: 'none',
             background: isSyncing 
               ? 'linear-gradient(135deg, #94A3B8 0%, #64748B 100%)'
-              : 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
+              : 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
             color: 'white',
             fontWeight: 700,
             fontSize: '16px',
             cursor: isSyncing ? 'not-allowed' : 'pointer',
-            boxShadow: '0 8px 24px rgba(249, 115, 22, 0.4)',
+            boxShadow: '0 8px 24px rgba(139, 92, 246, 0.4)',
             transition: 'all 0.3s'
           }}
         >

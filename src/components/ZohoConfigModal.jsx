@@ -1,106 +1,60 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  X, Settings, ArrowRight, Check, AlertCircle,
-  Database, Upload, Loader2, ChevronRight, Sparkles
+import { 
+  X, 
+  Settings, 
+  ArrowRight, 
+  Check, 
+  AlertCircle,
+  Database,
+  Upload,
+  Loader2,
+  ChevronRight,
+  Sparkles
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-const SOURCE_FIELDS = [
-  { key: 'scholar_name',               label: 'Scholar name',        required: true  },
-  { key: 'scholar_id',                 label: 'Scholar ID',          required: true  },
-  { key: 'tracking_id',                label: 'Tracking ID',         required: false },
-  { key: 'bank_data.account_number',   label: 'Account number',      required: false },
-  { key: 'bank_data.bank_name',        label: 'Bank name',           required: false },
-  { key: 'bank_data.account_holder_name', label: 'Account holder',   required: false },
-  { key: 'bank_data.ifsc_code',        label: 'IFSC code',           required: false },
-  { key: 'bank_data.branch_name',      label: 'Branch name',         required: false },
-  { key: 'bill_data',                  label: 'Bill data (full)',     required: false },
-  ...Array.from({ length: 8 }, (_, i) => ({
-    key:      `bill_data[${i}].amount`,
-    label:    `Bill ${i + 1} amount`,
-    required: false,
-  })),
-]
-
-const SYNC_MODES = [
-  { id: 'auto',   label: 'Auto',         sub: 'Insert + update'  },
-  { id: 'insert', label: 'Insert only',  sub: 'Create new'       },
-  { id: 'update', label: 'Update only',  sub: 'Modify existing'  },
-]
-
-const STEPS = [
-  { num: 1, label: 'Configure'  },
-  { num: 2, label: 'Map fields' },
-  { num: 3, label: 'Push'       },
-]
-
-/* ─── tiny helpers ──────────────────────────────────────────── */
-const inputBase = {
-  width: '100%',
-  boxSizing: 'border-box',
-  padding: '9px 12px',
-  borderRadius: 8,
-  border: '0.5px solid var(--color-border-secondary, #d1d5db)',
-  fontSize: 13,
-  fontFamily: 'inherit',
-  background: 'var(--color-background-secondary, #f9fafb)',
-  color: 'var(--color-text-primary, #111827)',
-  outline: 'none',
-  transition: 'border-color 0.15s, box-shadow 0.15s',
-}
-
-function TextInput({ id, placeholder, value, onChange }) {
-  return (
-    <input
-      id={id}
-      type="text"
-      placeholder={placeholder}
-      value={value}
-      onChange={onChange}
-      style={inputBase}
-      onFocus={e => {
-        e.target.style.borderColor = '#F97316'
-        e.target.style.boxShadow  = '0 0 0 3px rgba(249,115,22,.12)'
-      }}
-      onBlur={e => {
-        e.target.style.borderColor = ''
-        e.target.style.boxShadow   = ''
-      }}
-    />
-  )
-}
-
-function Label({ children }) {
-  return (
-    <label style={{ fontSize: 12, color: 'var(--color-text-secondary,#6b7280)', display: 'block', marginBottom: 6 }}>
-      {children}
-    </label>
-  )
-}
-
-function Required() {
-  return <span style={{ color: 'var(--color-text-danger,#ef4444)', marginLeft: 3 }}>*</span>
-}
-
-/* ─── main component ─────────────────────────────────────────── */
-export default function ZohoConfigModal({
-  isOpen,
-  onClose,
-  selectedRecords,
-  onSuccess,
-  todayOnly = true,
-}) {
-  const [step,        setStep]        = useState(1)
-  const [config,      setConfig]      = useState({ owner_name: '', app_name: '', form_name: '', report_name: '' })
-  const [syncMode,    setSyncMode]    = useState('auto')
+export default function ZohoConfigModal({ isOpen, onClose, selectedRecords, onSuccess, todayOnly = true }) {
+  const [step, setStep] = useState(1) // 1: Config, 2: Field Mapping, 3: Preview & Push
+  
+  // Step 1: Zoho Configuration
+  const [config, setConfig] = useState({
+    owner_name: '',
+    app_name: '',
+    form_name: ''
+  })
+  
+  // Step 2: Field Mapping
   const [fieldMapping, setFieldMapping] = useState({})
-  const [zohoFields,  setZohoFields]  = useState([])
-  const [isLoading,   setIsLoading]   = useState(false)
-  const [isPushing,   setIsPushing]   = useState(false)
-  const [pushResult,  setPushResult]  = useState(null)
+  const [zohoFields, setZohoFields] = useState([])
+  const [isLoadingFields, setIsLoadingFields] = useState(false)
+  
+  // Step 3: Push Status
+  const [isPushing, setIsPushing] = useState(false)
+  const [pushProgress, setPushProgress] = useState(null)
+  
+  // Available source fields (from your extracted data)
+  const sourceFields = [
+    { key: 'scholar_name', label: 'Scholar Name', required: true },
+    { key: 'scholar_id', label: 'Scholar ID', required: true },
+    { key: 'tracking_id', label: 'Tracking ID', required: false },
+    { key: 'bank_data.account_number', label: 'Account Number', required: false },
+    { key: 'bank_data.bank_name', label: 'Bank Name', required: false },
+    { key: 'bank_data.account_holder_name', label: 'Account Holder Name', required: false },
+    { key: 'bank_data.ifsc_code', label: 'IFSC Code', required: false },
+    { key: 'bank_data.branch_name', label: 'Branch Name', required: false },
+    { key: 'bill_data', label: 'Bill Data (Full)', required: false },
+    { key: 'bill_data[0].amount', label: 'Bill 1 Amount', required: false },
+    { key: 'bill_data[1].amount', label: 'Bill 2 Amount', required: false },
+    { key: 'bill_data[2].amount', label: 'Bill 3 Amount', required: false },
+    { key: 'bill_data[3].amount', label: 'Bill 4 Amount', required: false },
+    { key: 'bill_data[4].amount', label: 'Bill 5 Amount', required: false },
+    { key: 'bill_data[5].amount', label: 'Bill 6 Amount', required: false },
+    { key: 'bill_data[6].amount', label: 'Bill 7 Amount', required: false },
+    { key: 'bill_data[7].amount', label: 'Bill 8 Amount', required: false }
+  ]
 
   /* lock body scroll */
   useEffect(() => {
@@ -111,85 +65,53 @@ export default function ZohoConfigModal({
       setConfig({ owner_name: '', app_name: '', form_name: '' })
       setFieldMapping({})
       setZohoFields([])
-      setPushResult(null)
+      
+      // Prevent body scroll
+      document.body.style.overflow = 'hidden'
+    } else {
+      // Restore body scroll
+      document.body.style.overflow = 'unset'
     }
-    return () => { document.body.style.overflow = '' }
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
   }, [isOpen])
 
-  const setField = useCallback((key, val) => setConfig(c => ({ ...c, [key]: val })), [])
+  const fetchZohoFields = async () => {
+    if (!config.owner_name || !config.app_name || !config.form_name) {
+      toast.error('Please fill in all Zoho configuration fields')
+      return
+    }
 
-  /* derived config validity */
-  const needsForm   = syncMode === 'auto' || syncMode === 'insert'
-  const needsReport = syncMode === 'auto' || syncMode === 'update'
-  const step1Valid  =
-    config.owner_name.trim() &&
-    config.app_name.trim()   &&
-    (!needsForm   || config.form_name.trim())   &&
-    (!needsReport || config.report_name.trim())
-
-  /* fetch zoho fields */
-  async function fetchFields() {
-    setIsLoading(true)
+    setIsLoadingFields(true)
     try {
-      const res  = await fetch(`${API_BASE_URL}/zoho/get-form-fields`, {
-        method:  'POST',
+      const response = await fetch(`${API_BASE_URL}/zoho/get-form-fields`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
+        body: JSON.stringify({
           owner_name: config.owner_name,
-          app_name:   config.app_name,
-          form_name:  config.form_name,
-        }),
+          app_name: config.app_name,
+          form_name: config.form_name
+        })
       })
-      const data = await res.json()
+
+      const data = await response.json()
+      
       if (data.success) {
         setZohoFields(data.fields || [])
-        toast.success(`Loaded ${data.fields.length} Zoho fields`)
+        toast.success(`✅ Loaded ${data.fields.length} Zoho fields`, {
+          style: { background: '#10B981', color: 'white' }
+        })
         setStep(2)
       } else {
         toast.error(data.error || 'Failed to fetch Zoho fields')
       }
-    } catch (err) {
-      toast.error(err.message)
+    } catch (error) {
+      toast.error(`Error: ${error.message}`)
     } finally {
-      setIsLoading(false)
-    }
-  }
-
-  /* push records */
-  async function handlePush() {
-    const missing = SOURCE_FIELDS.filter(f => f.required && !fieldMapping[f.key])
-    if (missing.length) {
-      toast.error(`Map required fields: ${missing.map(f => f.label).join(', ')}`)
-      return
-    }
-    setIsPushing(true)
-    setStep(3)
-    try {
-      const res    = await fetch(`${API_BASE_URL}/zoho/sync-records?today_only=${todayOnly}`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          config,
-          field_mapping: fieldMapping,
-          record_ids:    Array.from(selectedRecords),
-          sync_mode:     syncMode,
-        }),
-      })
-      const result = await res.json()
-      if (result.success && result.details) {
-        setPushResult(result.details)
-        toast.success(`Pushed ${result.details.successful ?? result.details.inserted ?? 0} records!`)
-        onSuccess(result.details)
-        setTimeout(onClose, 2500)
-      } else {
-        toast.error(result.error || 'Failed to push records')
-        setStep(2)
-      }
-    } catch (err) {
-      toast.error(err.message)
-      setStep(2)
-    } finally {
-      setIsPushing(false)
+      setIsLoadingFields(false)
     }
   }
 
@@ -257,366 +179,592 @@ export default function ZohoConfigModal({
   if (!isOpen) return null
 
   return (
-    <AnimatePresence>
-      <motion.div
-        key="backdrop"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        style={{
-          position:       'fixed', inset: 0,
-          background:     'rgba(0,0,0,0.55)',
-          backdropFilter: 'blur(8px)',
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'center',
-          zIndex:         9999,
-          padding:        16,
-          overflowY:      'auto',
-        }}
-      >
+    <>
+      <style>{`
+        @keyframes spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+      `}</style>
+      <AnimatePresence>
         <motion.div
-          key="modal"
-          initial={{ scale: 0.96, y: 16, opacity: 0 }}
-          animate={{ scale: 1,    y: 0,  opacity: 1 }}
-          exit={{    scale: 0.96, y: 16, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 340, damping: 30 }}
-          onClick={e => e.stopPropagation()}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           style={{
-            background:   'var(--color-background-primary, #fff)',
-            borderRadius: 20,
-            width:        '100%',
-            maxWidth:     640,
-            maxHeight:    '88vh',
-            overflow:     'hidden',
-            display:      'flex',
-            flexDirection:'column',
-            border:       '0.5px solid var(--color-border-tertiary, #e5e7eb)',
-            boxShadow:    '0 24px 48px rgba(0,0,0,0.18)',
-            margin:       'auto',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+            overflowY: 'auto',
+            overflowX: 'hidden'
+          }}
+          onClick={onClose}
+        >
+        <motion.div
+          initial={{ scale: 0.95, y: 20 }}
+          animate={{ scale: 1, y: 0 }}
+          exit={{ scale: 0.95, y: 20 }}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            background: 'white',
+            borderRadius: '24px',
+            width: '100%',
+            maxWidth: '650px',
+            maxHeight: '70vh',
+            overflow: 'hidden',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.3)',
+            display: 'flex',
+            flexDirection: 'column',
+            margin: 'auto',
+            position: 'relative'
           }}
         >
-          {/* ── Header ─────────────────────────────────────────── */}
-          <div style={{ background: '#F97316', padding: '20px 24px 0', position: 'relative', overflow: 'hidden' }}>
-            {/* decorative blobs */}
-            <div style={{ position:'absolute', top:-60, right:-40, width:200, height:200, background:'rgba(255,255,255,.08)', borderRadius:'50%' }} />
-            <div style={{ position:'absolute', bottom:-30, left:20, width:110, height:110, background:'rgba(255,255,255,.06)', borderRadius:'50%' }} />
-
-            <div style={{ position:'relative', zIndex:1, display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                <div style={{ width:40, height:40, background:'rgba(255,255,255,.2)', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <Database size={20} color="white" />
-                </div>
+          {/* Header */}
+          <div style={{
+            background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+            padding: '20px 24px',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            <div style={{ position: 'absolute', top: '-50%', right: '-10%', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%)', borderRadius: '50%' }} />
+            
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Database size={28} style={{ color: 'white' }} />
                 <div>
-                  <h2 style={{ margin:0, fontSize:17, fontWeight:500, color:'white' }}>Push to Zoho Creator</h2>
-                  <p style={{ margin:'2px 0 0', fontSize:12, color:'rgba(255,255,255,.8)' }}>
-                    Sync {selectedRecords.length} selected records
+                  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 900, color: 'white' }}>
+                    Push to Zoho Creator
+                  </h2>
+                  <p style={{ margin: '2px 0 0 0', color: 'rgba(255,255,255,0.9)', fontSize: '12px' }}>
+                    Configure & map fields to sync {selectedRecords.length} records
                   </p>
                 </div>
               </div>
               <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.92 }}
+                whileHover={{ scale: 1.1, rotate: 90 }}
+                whileTap={{ scale: 0.9 }}
                 onClick={onClose}
-                aria-label="Close"
-                style={{ width:32, height:32, borderRadius:'50%', background:'rgba(255,255,255,.18)', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'white' }}
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  border: 'none',
+                  color: 'white',
+                  cursor: 'pointer',
+                  borderRadius: '50%',
+                  width: '36px',
+                  height: '36px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
               >
-                <X size={15} />
+                <X size={20} />
               </motion.button>
             </div>
 
-            {/* step tabs */}
-            <div style={{ position:'relative', zIndex:1, display:'flex' }}>
-              {STEPS.map((s, i) => {
-                const active = step === s.num
-                const done   = step > s.num
-                return (
-                  <button
-                    key={s.num}
-                    onClick={() => done && setStep(s.num)}
-                    style={{
-                      flex:1, padding:'10px 8px', background:'transparent', border:'none',
-                      borderBottom: active ? '3px solid white' : '3px solid rgba(255,255,255,.3)',
-                      cursor: done ? 'pointer' : 'default', textAlign:'center',
-                      transition: 'border-color 0.2s',
-                    }}
-                  >
-                    <div style={{
-                      width:22, height:22, borderRadius:'50%', margin:'0 auto 5px',
-                      background: (active || done) ? 'white' : 'rgba(255,255,255,.3)',
-                      color: (active || done) ? '#F97316' : 'white',
-                      fontSize:11, fontWeight:500, display:'flex', alignItems:'center', justifyContent:'center',
-                    }}>
-                      {done ? <Check size={12} /> : s.num}
-                    </div>
-                    <div style={{ fontSize:11, color: active ? 'white' : 'rgba(255,255,255,.65)', fontWeight:500 }}>
-                      {s.label}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* ── Body ───────────────────────────────────────────── */}
-          <div style={{ flex:1, overflowY:'auto', padding:20, background:'var(--color-background-tertiary, #f9fafb)' }}>
-            <AnimatePresence mode="wait">
-              {/* STEP 1 */}
-              {step === 1 && (
-                <motion.div key="s1" initial={{ opacity:0, x:-16 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-16 }} transition={{ duration:.18 }}>
-                  <Card>
-                    <SectionTitle>Zoho configuration</SectionTitle>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
-                      <div>
-                        <Label>Owner name <Required /></Label>
-                        <TextInput placeholder="yourcompany" value={config.owner_name} onChange={e => setField('owner_name', e.target.value)} />
-                      </div>
-                      <div>
-                        <Label>App name <Required /></Label>
-                        <TextInput placeholder="scholarship-app" value={config.app_name} onChange={e => setField('app_name', e.target.value)} />
-                      </div>
-                    </div>
-
-                    <Label>Sync mode</Label>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:16 }}>
-                      {SYNC_MODES.map(m => (
-                        <button
-                          key={m.id}
-                          onClick={() => setSyncMode(m.id)}
-                          style={{
-                            padding: '10px 8px', borderRadius:8, textAlign:'center', cursor:'pointer',
-                            border:      syncMode === m.id ? '2px solid #F97316' : '0.5px solid var(--color-border-tertiary)',
-                            background:  syncMode === m.id ? 'rgba(249,115,22,.06)' : 'var(--color-background-secondary)',
-                            transition: 'all 0.15s',
-                          }}
-                        >
-                          <div style={{ fontSize:12, fontWeight:500, color: syncMode === m.id ? '#F97316' : 'var(--color-text-primary)' }}>{m.label}</div>
-                          <div style={{ fontSize:10, color:'var(--color-text-secondary)', marginTop:2 }}>{m.sub}</div>
-                        </button>
-                      ))}
-                    </div>
-
-                    {needsForm && (
-                      <motion.div key="form" initial={{ opacity:0, y:-6 }} animate={{ opacity:1, y:0 }} style={{ marginBottom:12 }}>
-                        <Label>Form name <Required /></Label>
-                        <TextInput placeholder="Student_Details" value={config.form_name} onChange={e => setField('form_name', e.target.value)} />
-                        <FieldHint>Required for creating new records via Zoho V2 API</FieldHint>
-                      </motion.div>
-                    )}
-                    {needsReport && (
-                      <motion.div key="report" initial={{ opacity:0, y:-6 }} animate={{ opacity:1, y:0 }}>
-                        <Label>Report link name <Required /></Label>
-                        <TextInput placeholder="All_Student_Details" value={config.report_name} onChange={e => setField('report_name', e.target.value)} />
-                        <FieldHint>Required for querying and updating existing records</FieldHint>
-                      </motion.div>
-                    )}
-                  </Card>
-
-                  <InfoBox icon={<AlertCircle size={14} color="#D97706" style={{ flexShrink:0, marginTop:1 }} />} bg="rgba(245,158,11,.08)" border="rgba(245,158,11,.3)">
-                    Ensure valid Zoho Creator API credentials are configured in your backend{' '}
-                    <code style={{ fontSize:11, background:'var(--color-background-secondary)', padding:'1px 5px', borderRadius:4 }}>.env</code> file.
-                  </InfoBox>
-                </motion.div>
-              )}
-
-              {/* STEP 2 */}
-              {step === 2 && (
-                <motion.div key="s2" initial={{ opacity:0, x:16 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:16 }} transition={{ duration:.18 }}>
-                  <Card>
-                    <SectionTitle>Field mapping</SectionTitle>
-                    <p style={{ fontSize:12, color:'var(--color-text-secondary)', margin:'0 0 14px' }}>
-                      Map your source fields to Zoho Creator form fields
-                    </p>
-
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 20px 1fr', gap:8, padding:'0 4px', marginBottom:8 }}>
-                      <ColHead>Source field</ColHead>
-                      <div />
-                      <ColHead>Zoho field</ColHead>
-                    </div>
-
-                    <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:380, overflowY:'auto', paddingRight:2 }}>
-                      {SOURCE_FIELDS.map(sf => (
-                        <div
-                          key={sf.key}
-                          style={{
-                            display:'grid', gridTemplateColumns:'1fr 20px 1fr', gap:8, alignItems:'center',
-                            padding:'10px 12px', background:'var(--color-background-secondary)',
-                            borderRadius:8, border:'0.5px solid var(--color-border-tertiary)',
-                          }}
-                        >
-                          <div>
-                            <div style={{ fontSize:12, fontWeight:500, color:'var(--color-text-primary)' }}>
-                              {sf.label}{sf.required && <Required />}
-                            </div>
-                            <div style={{ fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'monospace', marginTop:2 }}>
-                              {sf.key}
-                            </div>
-                          </div>
-                          <ArrowRight size={13} color="#F97316" />
-                          <select
-                            value={fieldMapping[sf.key] || ''}
-                            onChange={e => setFieldMapping(m => ({ ...m, [sf.key]: e.target.value }))}
-                            style={{
-                              ...inputBase, padding:'7px 10px', cursor:'pointer',
-                              background:'var(--color-background-primary)',
-                            }}
-                            onFocus={e  => { e.target.style.borderColor='#F97316' }}
-                            onBlur={e   => { e.target.style.borderColor='' }}
-                          >
-                            <option value="">Select field…</option>
-                            {zohoFields.map(zf => <option key={zf} value={zf}>{zf}</option>)}
-                          </select>
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                </motion.div>
-              )}
-
-              {/* STEP 3 */}
-              {step === 3 && (
-                <motion.div key="s3" initial={{ opacity:0, scale:.97 }} animate={{ opacity:1, scale:1 }} transition={{ duration:.2 }}>
-                  <Card centered minHeight={320}>
-                    {isPushing ? (
-                      <>
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration:.9, repeat: Infinity, ease:'linear' }}
-                          style={{ marginBottom:20 }}
-                        >
-                          <Loader2 size={52} color="#F97316" />
-                        </motion.div>
-                        <h3 style={{ fontSize:17, fontWeight:500, color:'var(--color-text-primary)', margin:'0 0 8px' }}>
-                          Syncing records…
-                        </h3>
-                        <p style={{ fontSize:13, color:'var(--color-text-secondary)', margin:0 }}>
-                          This may take a moment
-                        </p>
-                      </>
-                    ) : pushResult ? (
-                      <>
-                        <motion.div
-                          initial={{ scale:0 }}
-                          animate={{ scale:1 }}
-                          transition={{ type:'spring', stiffness:280, damping:22 }}
-                          style={{
-                            width:60, height:60, borderRadius:'50%', background:'rgba(16,185,129,.12)',
-                            display:'flex', alignItems:'center', justifyContent:'center', marginBottom:20,
-                          }}
-                        >
-                          <Check size={28} color="#10B981" />
-                        </motion.div>
-                        <h3 style={{ fontSize:18, fontWeight:500, color:'var(--color-text-primary)', margin:'0 0 8px' }}>
-                          All done!
-                        </h3>
-                        <p style={{ fontSize:13, color:'var(--color-text-secondary)', margin:'0 0 20px' }}>
-                          Records pushed successfully
-                        </p>
-                        <div style={{ display:'flex', gap:10, flexWrap:'wrap', justifyContent:'center' }}>
-                          <Pill color="#10B981" bg="rgba(16,185,129,.1)">{pushResult.inserted ?? 0} inserted</Pill>
-                          <Pill color="#F97316"  bg="rgba(249,115,22,.1)" >{pushResult.updated  ?? 0} updated</Pill>
-                          <Pill color="#EF4444"  bg="rgba(239,68,68,.1)"  >{pushResult.failed   ?? 0} failed</Pill>
-                        </div>
-                      </>
-                    ) : null}
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* ── Footer ─────────────────────────────────────────── */}
-          <div style={{
-            padding: '14px 20px',
-            borderTop: '0.5px solid var(--color-border-tertiary)',
-            background: 'var(--color-background-primary)',
-            display: 'flex', justifyContent:'space-between', alignItems:'center',
-          }}>
-            <motion.button
-              whileHover={step > 1 && !isPushing ? { scale:1.03 } : {}}
-              whileTap={ step > 1 && !isPushing ? { scale:.97 } : {}}
-              onClick={() => step > 1 && !isPushing && setStep(s => s - 1)}
-              disabled={step === 1 || isPushing}
-              style={{
-                padding:'8px 18px', borderRadius:8, border:'0.5px solid var(--color-border-secondary)',
-                background:'transparent', fontSize:13, color:'var(--color-text-secondary)',
-                cursor: step === 1 || isPushing ? 'not-allowed' : 'pointer',
-                opacity: step === 1 || isPushing ? 0.4 : 1, transition:'opacity .2s',
-              }}
-            >
-              ← Back
-            </motion.button>
-
-            {/* step dots */}
-            <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-              {STEPS.map(s => (
-                <div
-                  key={s.num}
-                  style={{
-                    width:  step === s.num ? 18 : 6,
-                    height: 6, borderRadius:999,
-                    background: step === s.num ? '#F97316' : step > s.num ? '#F9C3A0' : 'var(--color-border-tertiary)',
-                    transition: 'all .25s',
-                  }}
-                />
+            {/* Progress Steps */}
+            <div style={{ marginTop: '16px', display: 'flex', gap: '8px', position: 'relative', zIndex: 1 }}>
+              {[
+                { num: 1, label: 'Configure' },
+                { num: 2, label: 'Map Fields' },
+                { num: 3, label: 'Push' }
+              ].map((s, idx) => (
+                <div key={`step-${s.num}-${idx}`} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    background: step >= s.num ? 'white' : 'rgba(255,255,255,0.3)',
+                    color: step >= s.num ? '#8B5CF6' : 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 900,
+                    fontSize: '12px'
+                  }}>
+                    {step > s.num ? <Check size={16} /> : s.num}
+                  </div>
+                  <span style={{ 
+                    color: step >= s.num ? 'white' : 'rgba(255,255,255,0.6)', 
+                    fontSize: '12px', 
+                    fontWeight: 600 
+                  }}>
+                    {s.label}
+                  </span>
+                  {idx < 2 && (
+                    <ChevronRight size={14} style={{ color: 'rgba(255,255,255,0.5)', marginLeft: 'auto' }} />
+                  )}
+                </div>
               ))}
             </div>
+          </div>
 
-            {/* right action */}
+          {/* Content */}
+          <div style={{ 
+            flex: 1, 
+            overflowY: 'auto', 
+            padding: '20px',
+            background: '#F8FAFC'
+          }}>
+            {/* STEP 1: Configuration */}
             {step === 1 && (
-              <motion.button
-                whileHover={step1Valid && !isLoading ? { scale:1.03 } : {}}
-                whileTap={ step1Valid && !isLoading ? { scale:.97 } : {}}
-                onClick={fetchFields}
-                disabled={!step1Valid || isLoading}
-                style={{
-                  display:'flex', alignItems:'center', gap:6, padding:'8px 20px',
-                  borderRadius:8, border:'none', fontSize:13, fontWeight:500,
-                  cursor: !step1Valid || isLoading ? 'not-allowed' : 'pointer',
-                  background: !step1Valid || isLoading ? 'var(--color-background-secondary)' : '#F97316',
-                  color:      !step1Valid || isLoading ? 'var(--color-text-tertiary)'   : 'white',
-                  transition: 'background .15s',
-                  boxShadow:  !step1Valid || isLoading ? 'none' : '0 4px 12px rgba(249,115,22,.28)',
-                }}
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
               >
-                {isLoading
-                  ? <><Loader2 size={13} style={{ animation:'spin 1s linear infinite' }} /> Loading…</>
-                  : <>Load fields <ChevronRight size={13} /></>
-                }
-              </motion.button>
+                <div style={{ 
+                  background: 'white', 
+                  padding: '20px', 
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                    <Settings size={20} style={{ color: '#8B5CF6' }} />
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>
+                      Zoho Creator Configuration
+                    </h3>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div>
+                      <label style={{ 
+                        display: 'block', 
+                        fontSize: '13px', 
+                        fontWeight: 600, 
+                        color: '#1E293B', 
+                        marginBottom: '6px' 
+                      }}>
+                        Owner Name <span style={{ color: '#EF4444' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g., yourcompany"
+                        value={config.owner_name}
+                        onChange={(e) => setConfig({ ...config, owner_name: e.target.value })}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          border: '2px solid #E2E8F0',
+                          fontSize: '14px',
+                          fontWeight: 500,
+                          outline: 'none',
+                          transition: 'all 0.2s',
+                          background: 'white',
+                          color: '#1E293B'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = '#8B5CF6'
+                          e.target.style.boxShadow = '0 0 0 3px rgba(139, 92, 246, 0.1)'
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = '#E2E8F0'
+                          e.target.style.boxShadow = 'none'
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ 
+                        display: 'block', 
+                        fontSize: '13px', 
+                        fontWeight: 600, 
+                        color: '#1E293B', 
+                        marginBottom: '6px' 
+                      }}>
+                        App Name <span style={{ color: '#EF4444' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g., scholarship-app"
+                        value={config.app_name}
+                        onChange={(e) => setConfig({ ...config, app_name: e.target.value })}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          border: '2px solid #E2E8F0',
+                          fontSize: '14px',
+                          fontWeight: 500,
+                          outline: 'none',
+                          transition: 'all 0.2s',
+                          background: 'white',
+                          color: '#1E293B'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = '#8B5CF6'
+                          e.target.style.boxShadow = '0 0 0 3px rgba(139, 92, 246, 0.1)'
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = '#E2E8F0'
+                          e.target.style.boxShadow = 'none'
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ 
+                        display: 'block', 
+                        fontSize: '13px', 
+                        fontWeight: 600, 
+                        color: '#1E293B', 
+                        marginBottom: '6px' 
+                      }}>
+                        Form Name <span style={{ color: '#EF4444' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Student_Details"
+                        value={config.form_name}
+                        onChange={(e) => setConfig({ ...config, form_name: e.target.value })}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          border: '2px solid #E2E8F0',
+                          fontSize: '14px',
+                          fontWeight: 500,
+                          outline: 'none',
+                          transition: 'all 0.2s',
+                          background: 'white',
+                          color: '#1E293B'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = '#8B5CF6'
+                          e.target.style.boxShadow = '0 0 0 3px rgba(139, 92, 246, 0.1)'
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = '#E2E8F0'
+                          e.target.style.boxShadow = 'none'
+                        }}
+                      />
+                    </div>
+
+                    <div style={{
+                      background: '#FEF3C7',
+                      border: '2px solid #FCD34D',
+                      borderRadius: '10px',
+                      padding: '12px',
+                      display: 'flex',
+                      gap: '10px'
+                    }}>
+                      <AlertCircle size={18} style={{ color: '#F59E0B', flexShrink: 0 }} />
+                      <div style={{ fontSize: '12px', color: '#92400E', lineHeight: 1.5 }}>
+                        <strong>Note:</strong> Make sure you have valid Zoho Creator API credentials configured in your backend (.env file).
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
             )}
 
+            {/* STEP 2: Field Mapping */}
             {step === 2 && (
-              <motion.button
-                whileHover={{ scale:1.03 }}
-                whileTap={{ scale:.97 }}
-                onClick={handlePush}
-                style={{
-                  display:'flex', alignItems:'center', gap:6, padding:'8px 20px',
-                  borderRadius:8, border:'none', fontSize:13, fontWeight:500,
-                  background:'#10B981', color:'white', cursor:'pointer',
-                  boxShadow:'0 4px 12px rgba(16,185,129,.28)',
-                }}
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
               >
-                <Upload size={13} /> Push to Zoho
-              </motion.button>
+                <div style={{ 
+                  background: 'white', 
+                  padding: '20px', 
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                    <ArrowRight size={20} style={{ color: '#8B5CF6' }} />
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>
+                      Map Your Fields
+                    </h3>
+                  </div>
+
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: '1fr auto 1fr',
+                    gap: '12px',
+                    alignItems: 'center',
+                    marginBottom: '12px',
+                    padding: '10px',
+                    background: '#F8FAFC',
+                    borderRadius: '8px'
+                  }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
+                      Source Field (Your Data)
+                    </div>
+                    <div></div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
+                      Zoho Creator Field
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '450px', overflowY: 'auto' }}>
+                    {sourceFields.map((sourceField, fieldIndex) => (
+                      <div 
+                        key={sourceField.key || `field-${fieldIndex}`}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr auto 1fr',
+                          gap: '12px',
+                          alignItems: 'center',
+                          padding: '12px',
+                          background: '#FAFAFA',
+                          borderRadius: '10px',
+                          border: '2px solid #E2E8F0'
+                        }}
+                      >
+                        <div>
+                          <div style={{ 
+                            fontSize: '13px', 
+                            fontWeight: 600, 
+                            color: '#1E293B',
+                            marginBottom: '3px'
+                          }}>
+                            {sourceField.label}
+                            {sourceField.required && (
+                              <span style={{ color: '#EF4444', marginLeft: '4px' }}>*</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'monospace' }}>
+                            {sourceField.key}
+                          </div>
+                        </div>
+
+                        <ArrowRight size={18} style={{ color: '#8B5CF6' }} />
+
+                        <select
+                          value={fieldMapping[sourceField.key] || ''}
+                          onChange={(e) => setFieldMapping({ 
+                            ...fieldMapping, 
+                            [sourceField.key]: e.target.value 
+                          })}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            borderRadius: '8px',
+                            border: '2px solid #E2E8F0',
+                            fontSize: '13px',
+                            fontWeight: 500,
+                            outline: 'none',
+                            background: 'white',
+                            color: '#1E293B',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                          onFocus={(e) => {
+                            e.target.style.borderColor = '#8B5CF6'
+                            e.target.style.boxShadow = '0 0 0 3px rgba(139, 92, 246, 0.1)'
+                          }}
+                          onBlur={(e) => {
+                            e.target.style.borderColor = '#E2E8F0'
+                            e.target.style.boxShadow = 'none'
+                          }}
+                        >
+                          <option value="">-- Select Zoho Field --</option>
+                          {zohoFields.map((zField, index) => (
+                            <option key={`${zField}-${index}`} value={zField}>
+                              {zField}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
             )}
 
-            {step === 3 && !isPushing && pushResult && (
-              <motion.button
-                whileHover={{ scale:1.03 }}
-                whileTap={{ scale:.97 }}
-                onClick={onClose}
-                style={{
-                  display:'flex', alignItems:'center', gap:6, padding:'8px 20px',
-                  borderRadius:8, border:'none', fontSize:13, fontWeight:500,
-                  background:'#10B981', color:'white', cursor:'pointer',
-                }}
+            {/* STEP 3: Push Progress */}
+            {step === 3 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
               >
-                <Sparkles size={13} /> Close
-              </motion.button>
+                <div style={{ 
+                  background: 'white', 
+                  padding: '40px 32px', 
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                  textAlign: 'center',
+                  minHeight: '320px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }}>
+                  {isPushing ? (
+                    <>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                      >
+                        <Loader2 size={56} style={{ color: '#8B5CF6', marginBottom: '24px' }} />
+                      </motion.div>
+                      <h3 style={{ fontSize: '20px', fontWeight: 700, color: '#1E293B', marginBottom: '10px' }}>
+                        Pushing to Zoho Creator...
+                      </h3>
+                      <p style={{ color: '#64748B', fontSize: '14px', marginBottom: '24px' }}>
+                        Please wait while we sync your records
+                      </p>
+                      {pushProgress && (
+                        <div style={{ width: '100%', maxWidth: '400px' }}>
+                          <div style={{ 
+                            width: '100%', 
+                            height: '8px', 
+                            background: '#E5E7EB', 
+                            borderRadius: '999px', 
+                            overflow: 'hidden',
+                            marginBottom: '12px'
+                          }}>
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${(pushProgress.current / pushProgress.total) * 100}%` }}
+                              transition={{ duration: 0.3 }}
+                              style={{
+                                height: '100%',
+                                background: 'linear-gradient(90deg, #8B5CF6 0%, #7C3AED 100%)',
+                                borderRadius: '999px'
+                              }}
+                            />
+                          </div>
+                          <div style={{ 
+                            fontSize: '15px', 
+                            color: '#64748B',
+                            fontWeight: 600
+                          }}>
+                            {pushProgress.current} / {pushProgress.total} records processed
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: 'spring', duration: 0.6 }}
+                      >
+                        <Sparkles size={56} style={{ color: '#10B981', marginBottom: '24px' }} />
+                      </motion.div>
+                      <h3 style={{ fontSize: '20px', fontWeight: 700, color: '#1E293B', marginBottom: '10px' }}>
+                        All Set!
+                      </h3>
+                      <p style={{ color: '#64748B', fontSize: '14px' }}>
+                        Your records have been successfully pushed to Zoho Creator
+                      </p>
+                    </>
+                  )}
+                </div>
+              </motion.div>
             )}
+          </div>
+
+          {/* Footer Actions */}
+          <div style={{ 
+            padding: '16px 20px', 
+            borderTop: '1px solid #E2E8F0',
+            background: 'white',
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: '10px'
+          }}>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => step > 1 && setStep(step - 1)}
+              disabled={step === 1 || isPushing}
+              style={{
+                padding: '10px 20px',
+                borderRadius: '10px',
+                border: '2px solid #E2E8F0',
+                background: 'white',
+                color: '#64748B',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: step === 1 || isPushing ? 'not-allowed' : 'pointer',
+                opacity: step === 1 || isPushing ? 0.5 : 1
+              }}
+            >
+              Back
+            </motion.button>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              {step === 1 && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={fetchZohoFields}
+                  disabled={isLoadingFields || !config.owner_name || !config.app_name || !config.form_name}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '10px 24px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: isLoadingFields || !config.owner_name || !config.app_name || !config.form_name
+                      ? '#E5E7EB'
+                      : 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                    color: isLoadingFields || !config.owner_name || !config.app_name || !config.form_name ? '#94A3B8' : 'white',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    cursor: isLoadingFields || !config.owner_name || !config.app_name || !config.form_name ? 'not-allowed' : 'pointer',
+                    boxShadow: isLoadingFields || !config.owner_name || !config.app_name || !config.form_name ? 'none' : '0 4px 12px rgba(139, 92, 246, 0.3)'
+                  }}
+                >
+                  {isLoadingFields ? (
+                    <>
+                      <Loader2 size={14} className="spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      Continue
+                      <ChevronRight size={14} />
+                    </>
+                  )}
+                </motion.button>
+              )}
+
+              {step === 2 && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handlePushToZoho}
+                  disabled={isPushing}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '10px 24px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                    color: 'white',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                  }}
+                >
+                  <Upload size={14} />
+                  Push to Zoho
+                </motion.button>
+              )}
+            </div>
           </div>
         </motion.div>
       </motion.div>
@@ -625,6 +773,7 @@ export default function ZohoConfigModal({
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
     </AnimatePresence>
+  </>
   )
 }
 
